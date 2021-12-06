@@ -18,9 +18,7 @@ import nibabel as nib
 from termcolor import colored
 from optparse import OptionParser
 
-
-
-     
+  
 
 def convert(Input,Out):
     g = '\u0022'       
@@ -155,8 +153,6 @@ def link(Input,OutDti,OutT2):
     fbvec = open(O1+'.bvec', 'w+')  # open file bvec in write mode
     fbval = open(O1+'.bval', 'w+')  # open file bvec in write mode
     indx = open(OutDti+'/index.txt','w+')
-    u.ni_creator(12,O1+'.nii.gz')
-    u.ni_creator(12,O2+'.nii.gz')
     list_Dti=[]
     list_multiT2=[]
     for i in range(1,20):
@@ -214,10 +210,18 @@ def link(Input,OutDti,OutT2):
         line=fbval.readline()
     fbval.close()
     indx.close()
-    merge(list_Dti,O1+'.nii.gz')
-    json_merge(list_Dti,OutDti)
-    merge(list_multiT2,O2+'.nii.gz')
-    json_merge(list_multiT2, OutT2)
+    if not os.path.isfile(O1+'.nii.gz'):
+        u.ni_creator(12,O1+'.nii.gz')
+    if os.stat(O1+'.nii.gz').st_size == 0:
+        u.merge(list_Dti,O1+'.nii.gz')
+    if not os.path.isfile(OutDti) or os.stat(OutDti).st_size == 0:
+        u.json_merge(list_Dti,OutDti)
+    if not os.path.isfile(O2+'.nii.gz'):
+        u.ni_creator(12,O2+'.nii.gz')
+    if os.stat(O2+'.nii.gz').st_size == 0:
+        u.merge(list_multiT2,O2+'.nii.gz')
+    if not os.path.isfile(OutT2) or os.stat(OutT2).st_size == 0:
+        u.json_merge(list_multiT2, OutT2)
     
 
 
@@ -230,9 +234,21 @@ if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option('-n','--name',dest = 'name',
                       help='path of data')
+    parser.add_option('-r','--replace',dest = 'replace',
+                      help='replace data True/False')
     (options,args) = parser.parse_args()
     #makeFile(options)
-
+    replace = vars(options)['replace']
+    print(replace)
+    time.sleep(11)
+    if replace in ['False','false','F','f','Flase','flase','Fasle','fasle','Faux','faux']:
+        replace = False
+        print(replace)
+        time.sleep(11)
+    else:
+        replace = True
+        print(replace)
+        time.sleep(11)
     Base = vars(options)['name']
     
     if Base == None or (not os.path.isdir(Base)):
@@ -241,29 +257,34 @@ if __name__ == "__main__":
     BaseIN = os.path.join(Base,'raw')
     BaseOUT = os.path.join(Base,'Convert')
     BaseMerge = os.path.join(Base,'Merge')
-    u.create_folder(BaseOUT)
-    u.create_folder(BaseMerge)
+    u.create_folder(BaseOUT,replace)
+    u.create_folder(BaseMerge,replace)
     Dti = os.path.join(BaseMerge,'Dti')
-    u.create_folder(Dti)
+    u.create_folder(Dti,replace)
     T2 = os.path.join(BaseMerge,'T2')
-    u.create_folder(T2)
+    u.create_folder(T2,replace)
     
+    tConv = 0
+    tMerg = 0
     d=1
     for file in os.listdir(BaseIN):
         if(os.path.isdir(os.path.join(BaseIN,file)) and file != 'cleaning_data'):
             Input  = os.path.join(BaseIN,file)
             name = u.get_name(os.path.join(Input,'subject'),file,'SUBJECT_study_name')
             Output = os.path.join(BaseOUT, name)
-            
-            u.create_folder(Output)
+            t1 = time.time()
+            u.create_folder(Output,replace)
             convert(Input,Output)
-            
+            t2 = time.time()
+            tConv += t2-t1
             f1 = os.path.join(Dti,'data_'+str(d))
             f2 = os.path.join(T2,'data_'+str(d))
-            u.create_folder(f1)
-            u.create_folder(f2)
-    
+            u.create_folder(f1,replace)
+            u.create_folder(f2,replace)
             link(Output,f1,f2)
+            t3 = time.time()
+            tMerg += t3-t2 
+            
             # A changer
             acqp = os.path.join(f1,'acqparams.txt')
             a = open(acqp,'w')
@@ -272,3 +293,9 @@ if __name__ == "__main__":
             
             d=d+1
             
+    print("temps de convertion",tConv)
+    print("temps de concatenation",tMerg)
+    
+    
+    
+    
