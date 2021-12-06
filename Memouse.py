@@ -5,7 +5,7 @@ Created on Fri Oct 15 11:57:42 2021
 
 @author: Eliott Henaut & Nicolas Bioul
 """
-
+import utils as u
 import os
 import re
 import shutil
@@ -21,22 +21,14 @@ from optparse import OptionParser
 
 
      
-def create_folder(path,replace=True):
-    if replace:
-        if os.path.exists(path):
-            shutil.rmtree(path)
-        os.mkdir(path)
-    else:
-        if not os.path.exists(path): 
-            os.mkdir(path)
-  
+
 def convert(Input,Out):
     g = '\u0022'       
 
     for file_name in os.listdir(Input):    
         if file_name.isnumeric():  # lit que les nom de chiffre
             In = os.path.join(Input,str(file_name))
-            Option = get_name(In+'/visu_pars',str(file_name),'VisuAcquisitionProtocol')# va chercher le nom
+            Option = u.get_name(In+'/visu_pars',str(file_name),'VisuAcquisitionProtocol')# va chercher le nom
             path_out = os.path.join(Out, Option)
 
             if(os.path.isfile(In)==False and os.path.isfile(path_out+'.nii.gz')==False):  # convert only directory not file 
@@ -152,28 +144,9 @@ def convert(Input,Out):
             else:
                 print(colored(str(file_name),'cyan'),'already converted to',colored(Option,'green'))
 
-def ni_creator(size,out): #out is a path: '/Users/nicolasbioul/Desktop/Thesis/example/data_1/test.nii.gz'
-    output=nib.Nifti1Image(np.zeros(size),affine=np.eye(4))
-    output.to_filename(out)
-
-def get_name(path_to_file,default,search):
-    file=open(path_to_file,'r')
-    line=file.readline()
-    name=default
-    while line:
-        if search in line:
-            name=file.readline()
-            name=name.replace('<','')
-            name=name.replace('>','')
-            name=name.replace('\n','')
-            break
-        line=file.readline()
-    file.close()
-    return name  
-
 def link(Input,OutDti,OutT2):
     reverse = os.path.join(OutDti,'reverse_encoding')
-    create_folder(reverse)
+    u.create_folder(reverse)
     start='/Groupe'
     end='/'
     name='Groupe'+(Input.split(start))[1].split(end)[0]
@@ -182,8 +155,8 @@ def link(Input,OutDti,OutT2):
     fbvec = open(O1+'.bvec', 'w+')  # open file bvec in write mode
     fbval = open(O1+'.bval', 'w+')  # open file bvec in write mode
     indx = open(OutDti+'/index.txt','w+')
-    ni_creator(12,O1+'.nii.gz')
-    ni_creator(12,O2+'.nii.gz')
+    u.ni_creator(12,O1+'.nii.gz')
+    u.ni_creator(12,O2+'.nii.gz')
     list_Dti=[]
     list_multiT2=[]
     for i in range(1,20):
@@ -246,40 +219,7 @@ def link(Input,OutDti,OutT2):
     merge(list_multiT2,O2+'.nii.gz')
     json_merge(list_multiT2, OutT2)
     
-def merge(inlist, out):
-    if 'T2map_MSME' in inlist[0]:
-        img = nib.concat_images(inlist,axis=0)
-        nib.save(img, out)
-    else:
-        img = nib.concat_images(inlist,axis=3)
-        nib.save(img, out)
-    return img
-    
-def json_merge(jlist,Out):
-    for i in range(len(jlist)):
-        if '.nii.gz' in jlist[i]:
-            jlist[i]=jlist[i].replace('.nii.gz','.json')
-        elif '.nii' in jlist[i]: 
-            jlist[i]=jlist[i].replace('.nii','.json')
-    start='/Groupe'
-    end='/'
-    name='/Groupe'+(jlist[0].split(start))[1].split(end)[0]
-    shutil.copyfile(jlist[0], Out+name+'.json')
-    f=open(Out+name+'.json')
-    data=json.load(f)
-    f.close()
-    f=open(Out+name+'.json','w')
-    for key in data:
-        attribute=[]
-        for item in jlist:
-            current=open(item)
-            current_data=json.load(current)
-            attribute.append(current_data[key])
-            current.close()
-        if not all(x == attribute[0] for x in attribute):
-            data[key]=attribute
-    json.dump(data, f, ensure_ascii=False, indent=4)
-    f.close()
+
 
 
 #======================================================================
@@ -299,31 +239,32 @@ if __name__ == "__main__":
         Base = os.getcwd()
 
     BaseIN = os.path.join(Base,'raw')
-    BaseOUT = os.path.join(Base,'ConvertEliott')
+    BaseOUT = os.path.join(Base,'Convert')
     BaseMerge = os.path.join(Base,'Merge')
-    create_folder(BaseOUT)
-    create_folder(BaseMerge)
+    u.create_folder(BaseOUT)
+    u.create_folder(BaseMerge)
     Dti = os.path.join(BaseMerge,'Dti')
-    create_folder(Dti)
+    u.create_folder(Dti)
     T2 = os.path.join(BaseMerge,'T2')
-    create_folder(T2)
+    u.create_folder(T2)
     
     d=1
     for file in os.listdir(BaseIN):
         if(os.path.isdir(os.path.join(BaseIN,file)) and file != 'cleaning_data'):
             Input  = os.path.join(BaseIN,file)
-            name = get_name(os.path.join(Input,'subject'),file,'SUBJECT_study_name')
-            Output =os.path.join(BaseOUT, name)
+            name = u.get_name(os.path.join(Input,'subject'),file,'SUBJECT_study_name')
+            Output = os.path.join(BaseOUT, name)
             
-            create_folder(Output)
+            u.create_folder(Output)
             convert(Input,Output)
             
             f1 = os.path.join(Dti,'data_'+str(d))
             f2 = os.path.join(T2,'data_'+str(d))
-            create_folder(f1)
-            create_folder(f2)
+            u.create_folder(f1)
+            u.create_folder(f2)
     
             link(Output,f1,f2)
+            # A changer
             acqp = os.path.join(f1,'acqparams.txt')
             a = open(acqp,'w')
             a.write("0 -1 0 0.095")
@@ -331,25 +272,3 @@ if __name__ == "__main__":
             
             d=d+1
             
-    f_path = Dti
-    study = elikopy.core.Elikopy(f_path)
-    
-    patient_list=None
-    
-    study.patient_list()
-    
-    study.preproc()
-    
-    """
-    study.preproc(eddy=True,topup=True,denoising=True,reslice=False,gibbs=False,biasfield=False,patient_list_m=patient_list,starting_state=None)
-    
-    study.white_mask()
-    
-    study.dti(patient_list_m=patient_list)
-    
-    study.noddi()
-    """
-    
-    study.export(raw=True, preprocessing=True, dti=False,noddi=False, 
-                 diamond=False, mf=False, wm_mask=False, report=True)
-    
