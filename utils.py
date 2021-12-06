@@ -3,14 +3,14 @@
 """
 Created on Mon Dec  6 15:22:03 2021
 
-@author: eliotthenaut
+@author: eliotthenaut and nicolasbioul
 """
 import os
 import re
 import shutil
 import elikopy
 import json
-import time 
+import time
 import sys
 import numpy as np
 import nibabel as nib
@@ -19,43 +19,61 @@ def create_folder(path,replace=True):
     if replace:
         if os.path.exists(path):
             shutil.rmtree(path)
-        os.mkdir(path)
-    else:
-        if not os.path.exists(path): 
+        try:
             os.mkdir(path)
-  
-def ni_creator(size,out): #out is a path: '/Users/nicolasbioul/Desktop/Thesis/example/data_1/test.nii.gz'
-    output=nib.Nifti1Image(np.zeros(size),affine=np.eye(4))
-    output.to_filename(out)
-
-def get_name(path_to_file,default,search):
-    file=open(path_to_file,'r')
-    line=file.readline()
-    name=default
-    while line:
-        if search in line:
-            name=file.readline()
-            name=name.replace('<','')
-            name=name.replace('>','')
-            name=name.replace('\n','')
-            break
-        line=file.readline()
-    file.close()
-    return name  
-
-def merge(inlist, out):
-    if 'T2map_MSME' in inlist[0]:
-        img = nib.concat_images(inlist,axis=0)
-        nib.save(img, out)
+        except OSError:
+            print("Directory creation %s failed" % path)
     else:
-        img = nib.concat_images(inlist,axis=3)
-        nib.save(img, out)
-    
+        if not os.path.exists(path):
+            try:
+                os.mkdir(path)
+            except OSError:
+                print("Directory creation %s failed" % path)
+
+def ni_creator(data,output): #out is a path: '/Users/nicolasbioul/Desktop/Thesis/example/data_1/test.nii.gz'
+    out=nib.Nifti1Image(np.zeros(data),affine=np.eye(4))
+    out.to_filename(output)
+
+def ni_writer(data,output):
+    data.to_filename(output)
+
+def merge(inlist, out_file):
+    assert(len(inlist)==0, "Your list is empty")
+    assert(os.path.isfile(out_file), "Your output file appears inexistant. Please check the path")
+
+    if 'T2map_MSME' in inlist[0]:
+        try:
+            img = nib.concat_images(inlist,axis=0)
+            nib.save(img, out_file)
+        except:
+            shutil.rmtree(out_file)
+            out_file.replace('.nii.gz','_error.txt')
+            print(colored('Error file generated: T2 merging failed','red'))
+            t.sleep(2)
+            f=open(out_file,'w+')
+            f.write('An error occured during merging multi T2. Please check the input data in order to retry merging. Common errors in merging include wrong dimensions in files, empty files or corrupted files given as an argument.')
+            f.close()
+    else:
+        try:
+            img = nib.concat_images(inlist,axis=3)
+            nib.save(img, out_file)
+        except:
+            shutil.rmtree(out_file)
+            out_file.replace('.nii.gz','_error.txt')
+            print(colored('Error file generated: Diffusion merging failed','red'))
+            t.sleep(2)
+            f=open(out_file,'w+')
+            f.write('An error occured during diffusion merging. Please check the input data in order to retry merging. Common errors in merging include wrong dimensions in files, empty files or corrupted files given as an argument.')
+            f.close()
+
 def json_merge(jlist,Out):
+
+    assert(len(jlist)==0, "Your list is empty")
+    assert(os.path.isdir(Out), "Your output directory appears inexistant. Please check the path")
     for i in range(len(jlist)):
         if '.nii.gz' in jlist[i]:
             jlist[i]=jlist[i].replace('.nii.gz','.json')
-        elif '.nii' in jlist[i]: 
+        elif '.nii' in jlist[i]:
             jlist[i]=jlist[i].replace('.nii','.json')
     start='/Groupe'
     end='/'
@@ -76,3 +94,19 @@ def json_merge(jlist,Out):
             data[key]=attribute
     json.dump(data, f, ensure_ascii=False, indent=4)
     f.close()
+
+
+def get_name(path_to_file,default,search):
+    file=open(path_to_file,'r')
+    line=file.readline()
+    name=default
+    while line:
+        if search in line:
+            name=file.readline()
+            name=name.replace('<','')
+            name=name.replace('>','')
+            name=name.replace('\n','')
+            break
+        line=file.readline()
+    file.close()
+    return name
