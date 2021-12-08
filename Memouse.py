@@ -33,7 +33,7 @@ def convert(Input,Out):
                             B=1
                             
                     if(B==0):
-                        os.system('/Applications/MRIcron.app/Contents/Resources/dcm2niix -f ' + g + Option + g + ' -p n -z y -o ' + g + Out + g +' '+ g + In + g)
+                        os.system('dcm2niix -f ' + g + Option + g + ' -p n -z y -o ' + g + Out + g +' '+ g + In + g)
                     
                         if os.path.isfile(path_out+'.nii.gz')==False:
                                 print(colored(str(file_name),'magenta'),colored('was not converted','red'))
@@ -52,7 +52,7 @@ def convert(Input,Out):
                             B=1
                             
                     if(B==0):
-                        os.system('/Applications/MRIcron.app/Contents/Resources/dcm2niix -f ' + g + Option + g + ' -p n -z y -o ' + g + Out + g +' '+ g + In + g)
+                        os.system('dcm2niix -f ' + g + Option + g + ' -p n -z y -o ' + g + Out + g +' '+ g + In + g)
                     
                         if os.path.isfile(path_out+'.nii.gz')==False:
                                 print(colored(str(file_name),'magenta'),colored('was not converted','red'))
@@ -66,7 +66,7 @@ def convert(Input,Out):
                     
                 else:
 
-                    os.system('/Applications/MRIcron.app/Contents/Resources/dcm2niix -f ' + g + Option + g + ' -p n -z y -o ' + g + Out + g +' '+ g + In + g)
+                    os.system('dcm2niix -f ' + g + Option + g + ' -p n -z y -o ' + g + Out + g +' '+ g + In + g)
                     
                     if os.path.isfile(path_out+'.nii.gz')==False:
                             print(colored(str(file_name),'magenta'),colored('was not converted','red'))
