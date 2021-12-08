@@ -9,12 +9,7 @@ import utils as u
 import os
 import re
 import shutil
-import elikopy
-import json
 import time 
-import sys
-import numpy as np
-import nibabel as nib
 from termcolor import colored
 from optparse import OptionParser
 

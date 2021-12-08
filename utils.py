@@ -6,14 +6,12 @@ Created on Mon Dec  6 15:22:03 2021
 @author: eliotthenaut and nicolasbioul
 """
 import os
-import re
 import shutil
-import elikopy
 import json
-import time
-import sys
+import time 
 import numpy as np
 import nibabel as nib
+from termcolor import colored
 
 def create_folder(path,replace=True):
     if replace:
@@ -38,8 +36,8 @@ def ni_writer(data,output):
     data.to_filename(output)
 
 def merge(inlist, out_file):
-    assert(len(inlist)==0, "Your list is empty")
-    assert(os.path.isfile(out_file), "Your output file appears inexistant. Please check the path")
+    assert len(inlist)==0, "Your list is empty"
+    assert os.path.isfile(out_file), "Your output file appears inexistant. Please check the path"
 
     if 'T2map_MSME' in inlist[0]:
         try:
@@ -49,7 +47,7 @@ def merge(inlist, out_file):
             shutil.rmtree(out_file)
             out_file.replace('.nii.gz','_error.txt')
             print(colored('Error file generated: T2 merging failed','red'))
-            t.sleep(2)
+            time.sleep(2)
             f=open(out_file,'w+')
             f.write('An error occured during merging multi T2. Please check the input data in order to retry merging. Common errors in merging include wrong dimensions in files, empty files or corrupted files given as an argument.')
             f.close()
@@ -61,15 +59,15 @@ def merge(inlist, out_file):
             shutil.rmtree(out_file)
             out_file.replace('.nii.gz','_error.txt')
             print(colored('Error file generated: Diffusion merging failed','red'))
-            t.sleep(2)
+            time.sleep(2)
             f=open(out_file,'w+')
             f.write('An error occured during diffusion merging. Please check the input data in order to retry merging. Common errors in merging include wrong dimensions in files, empty files or corrupted files given as an argument.')
             f.close()
 
 def json_merge(jlist,Out):
 
-    assert(len(jlist)==0, "Your list is empty")
-    assert(os.path.isdir(Out), "Your output directory appears inexistant. Please check the path")
+    assert len(jlist)==0, "Your list is empty" 
+    assert os.path.isdir(Out), "Your output directory appears inexistant. Please check the path"
     for i in range(len(jlist)):
         if '.nii.gz' in jlist[i]:
             jlist[i]=jlist[i].replace('.nii.gz','.json')
