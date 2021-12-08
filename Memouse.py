@@ -45,9 +45,11 @@ def convert(Input,Out,error_file):
                     
                         if os.path.isfile(path_out+'.nii.gz')==False:
                                 print(colored(str(file_name),'magenta'),colored('was not converted','red'))
+                                error_file.write("convert "+path_out+" was not converted")
                                 #time.sleep(2)
                         else:
                             print(colored(str(file_name),'cyan'),'was converted to',colored(Option,'green'))
+                            os.chmod(path_out+'.nii.gz',0o777)
                             #time.sleep(1)
                     else:
                         print(colored(str(file_name),'cyan'),'already converted to',colored(Option,'green'))
@@ -64,9 +66,11 @@ def convert(Input,Out,error_file):
                     
                         if os.path.isfile(path_out+'.nii.gz')==False:
                                 print(colored(str(file_name),'magenta'),colored('was not converted','red'))
+                                error_file.write("convert "+path_out+" was not converted")
                                 #time.sleep(2)
                         else:
                             print(colored(str(file_name),'cyan'),'was converted to',colored(Option,'green'))
+                            os.chmod(path_out+'.nii.gz',0o777)
                             #time.sleep(1)
                     else:
                         print(colored(str(file_name),'cyan'),'already converted to',colored(Option,'green'))
@@ -78,19 +82,21 @@ def convert(Input,Out,error_file):
                     
                     if os.path.isfile(path_out+'.nii.gz')==False:
                             print(colored(str(file_name),'magenta'),colored('was not converted','red'))
+                            error_file.write("convert "+path_out+" was not converted")
                             #time.sleep(2)
                     else:
                         print(colored(str(file_name),'cyan'),'was converted to',colored(Option,'green'))
                         #time.sleep(1)
+                        os.chmod(path_out+'.nii.gz',0o777)
                 file=open(In+'/method','r')
                 a=[]
                 b=[]
                 bval = path_out+'.bval'
                 bvec = path_out+'.bvec'
                 fbvec = open(bvec, 'w+')  # open file bvec in write mode
-                os.chmod(bvec,0o666)
+                os.chmod(bvec,0o777)
                 fbval = open(bval, 'w+')  # open file bvec in write mode
-                os.chmod(bval,0o666)
+                os.chmod(bval,0o777)
                 line=file.readline()
                 while line:
                     if 'PVM_DwEffBval' in line:
@@ -156,9 +162,9 @@ def link(Input,OutDti,OutT2,error_file):
     O1 = os.path.join(OutDti,name)
     O2 = os.path.join(OutT2,name)
     fbvec = open(O1+'.bvec', 'w+')  # open file bvec in write mode
-    os.chmod(O1+'.bvec',0o666)
+    os.chmod(O1+'.bvec',0o777)
     fbval = open(O1+'.bval', 'w+')  # open file bvec in write mode
-    os.chmod(O1+'.bval',0o666)
+    os.chmod(O1+'.bval',0o777)
     indx = open(OutDti+'/index.txt','w+')
     list_Dti=[]
     list_multiT2=[]
@@ -272,7 +278,7 @@ if __name__ == "__main__":
         Base = os.getcwd()
     
     error_file = open(Base+'/error_file.txt','w')
-    os.chmod(Base+'/error_file',0o666)
+    os.chmod(Base+'/error_file.txt',0o777)
     
     BaseIN = os.path.join(Base,'raw')
     BaseOUT = os.path.join(Base,'Convert')
@@ -312,7 +318,7 @@ if __name__ == "__main__":
             # A changer
             acqp = os.path.join(f1,'acqparams.txt')
             a = open(acqp,'w')
-            os.chmod(acqp,0o666)
+            os.chmod(acqp,0o777)
             a.write("0 -1 0 0.095")
             a.close()
             
