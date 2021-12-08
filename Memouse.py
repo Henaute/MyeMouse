@@ -239,18 +239,12 @@ if __name__ == "__main__":
     (options,args) = parser.parse_args()
     #makeFile(options)
     replace = vars(options)['replace']
-    print(replace)
-    time.sleep(11)
     if replace in ['False','false','F','f','Flase','flase','Fasle','fasle','Faux','faux']:
         replace = False
-        print(replace)
-        time.sleep(11)
     else:
         replace = True
-        print(replace)
-        time.sleep(11)
+        
     Base = vars(options)['name']
-    
     if Base == None or (not os.path.isdir(Base)):
         Base = os.getcwd()
 
