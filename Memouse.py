@@ -271,7 +271,7 @@ if __name__ == "__main__":
     if Base == None or (not os.path.isdir(Base)):
         Base = os.getcwd()
     
-    error_file = open(Base+'/error_file.txt')
+    error_file = open(Base+'/error_file.txt','w')
     os.chmod(Base+'/error_file',0o666)
     
     BaseIN = os.path.join(Base,'raw')
