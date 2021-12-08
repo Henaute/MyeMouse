@@ -36,8 +36,8 @@ def ni_writer(data,output):
     data.to_filename(output)
 
 def merge(inlist, out_file):
-    assert len(inlist)==0, "Your list is empty"
-    assert os.path.isfile(out_file), "Your output file appears inexistant. Please check the path"
+    assert len(inlist)!=0, "Your list is empty"
+    assert os.path.isfile(out_file)!=False, "Your output file appears inexistant. Please check the path"
 
     if 'T2map_MSME' in inlist[0]:
         try:
@@ -66,8 +66,8 @@ def merge(inlist, out_file):
 
 def json_merge(jlist,Out):
 
-    assert len(jlist)==0, "Your list is empty" 
-    assert os.path.isdir(Out), "Your output directory appears inexistant. Please check the path"
+    assert len(jlist)!=0, "Your list is empty" 
+    assert os.path.isdir(Out)!=False, "Your output directory appears inexistant. Please check the path"
     for i in range(len(jlist)):
         if '.nii.gz' in jlist[i]:
             jlist[i]=jlist[i].replace('.nii.gz','.json')
