@@ -20,14 +20,14 @@ def create_folder(path,replace=True):
             shutil.rmtree(path)
         try:
             os.mkdir(path)
-            os.chmod(path,0o666)
+            os.chmod(path,0o777)
         except OSError:
             print("Directory creation %s failed" % path)
     else:
         if not os.path.exists(path):
             try:
                 os.mkdir(path)
-                os.chmod(path,0o666)
+                os.chmod(path,0o777)
             except OSError:
                 print("Directory creation %s failed" % path)
 
@@ -56,7 +56,7 @@ def merge(inlist, out_file):
             print(colored('Error file generated: T2 merging failed','red'))
             time.sleep(2)
             f=open(out_file,'w+')
-            os.chmod(out_file,0o666)
+            os.chmod(out_file,0o777)
             f.write('An error occured during merging multi T2. Please check the input data in order to retry merging. Common errors in merging include wrong dimensions in files, empty files or corrupted files given as an argument.')
             f.close()
     else:
@@ -69,7 +69,7 @@ def merge(inlist, out_file):
             print(colored('Error file generated: Diffusion merging failed','red'))
             time.sleep(2)
             f=open(out_file,'w+')
-            os.chmod(out_file,0o666)
+            os.chmod(out_file,0o777)
             f.write('An error occured during diffusion merging. Please check the input data in order to retry merging. Common errors in merging include wrong dimensions in files, empty files or corrupted files given as an argument.')
             f.close()
     return 0
@@ -96,7 +96,7 @@ def json_merge(jlist,Out):
     data=json.load(f)
     f.close()
     f=open(Out+name+'.json','w')
-    os.chmod(Out+name+'.json',0o666)
+    os.chmod(Out+name+'.json',0o777)
     for key in data:
         attribute=[]
         for item in jlist:
