@@ -15,13 +15,21 @@ from optparse import OptionParser
 
   
 
-def convert(Input,Out):
+def convert(Input,Out,error_file):
     g = '\u0022'       
 
     for file_name in os.listdir(Input):    
         if file_name.isnumeric():  # lit que les nom de chiffre
             In = os.path.join(Input,str(file_name))
-            Option = u.get_name(In+'/visu_pars',str(file_name),'VisuAcquisitionProtocol')# va chercher le nom
+            # va chercher le nom
+            if os.path.isfile(In+'/visu_pars'):
+                Option = u.get_name(In+'/visu_pars',str(file_name),'VisuAcquisitionProtocol')
+            elif os.path.isfile(In+'/acqp'):
+                Option = u.get_name(In+'/acqp',str(file_name),'ACQ_protocol_name')
+            else:
+                error_file.write("get_name "+In+'/visu_pars')
+                continue
+            
             path_out = os.path.join(Out, Option)
 
             if(os.path.isfile(In)==False and os.path.isfile(path_out+'.nii.gz')==False):  # convert only directory not file 
@@ -37,9 +45,11 @@ def convert(Input,Out):
                     
                         if os.path.isfile(path_out+'.nii.gz')==False:
                                 print(colored(str(file_name),'magenta'),colored('was not converted','red'))
+                                error_file.write("convert "+path_out+" was not converted")
                                 #time.sleep(2)
                         else:
                             print(colored(str(file_name),'cyan'),'was converted to',colored(Option,'green'))
+                            os.chmod(path_out+'.nii.gz',0o777)
                             #time.sleep(1)
                     else:
                         print(colored(str(file_name),'cyan'),'already converted to',colored(Option,'green'))
@@ -56,9 +66,11 @@ def convert(Input,Out):
                     
                         if os.path.isfile(path_out+'.nii.gz')==False:
                                 print(colored(str(file_name),'magenta'),colored('was not converted','red'))
+                                error_file.write("convert "+path_out+" was not converted")
                                 #time.sleep(2)
                         else:
                             print(colored(str(file_name),'cyan'),'was converted to',colored(Option,'green'))
+                            os.chmod(path_out+'.nii.gz',0o777)
                             #time.sleep(1)
                     else:
                         print(colored(str(file_name),'cyan'),'already converted to',colored(Option,'green'))
@@ -70,17 +82,21 @@ def convert(Input,Out):
                     
                     if os.path.isfile(path_out+'.nii.gz')==False:
                             print(colored(str(file_name),'magenta'),colored('was not converted','red'))
+                            error_file.write("convert "+path_out+" was not converted")
                             #time.sleep(2)
                     else:
                         print(colored(str(file_name),'cyan'),'was converted to',colored(Option,'green'))
                         #time.sleep(1)
+                        os.chmod(path_out+'.nii.gz',0o777)
                 file=open(In+'/method','r')
                 a=[]
                 b=[]
                 bval = path_out+'.bval'
                 bvec = path_out+'.bvec'
                 fbvec = open(bvec, 'w+')  # open file bvec in write mode
+                os.chmod(bvec,0o777)
                 fbval = open(bval, 'w+')  # open file bvec in write mode
+                os.chmod(bval,0o777)
                 line=file.readline()
                 while line:
                     if 'PVM_DwEffBval' in line:
@@ -137,7 +153,7 @@ def convert(Input,Out):
             else:
                 print(colored(str(file_name),'cyan'),'already converted to',colored(Option,'green'))
 
-def link(Input,OutDti,OutT2):
+def link(Input,OutDti,OutT2,error_file):
     reverse = os.path.join(OutDti,'reverse_encoding')
     u.create_folder(reverse)
     start='/Groupe'
@@ -146,7 +162,9 @@ def link(Input,OutDti,OutT2):
     O1 = os.path.join(OutDti,name)
     O2 = os.path.join(OutT2,name)
     fbvec = open(O1+'.bvec', 'w+')  # open file bvec in write mode
+    os.chmod(O1+'.bvec',0o777)
     fbval = open(O1+'.bval', 'w+')  # open file bvec in write mode
+    os.chmod(O1+'.bval',0o777)
     indx = open(OutDti+'/index.txt','w+')
     list_Dti=[]
     list_multiT2=[]
@@ -208,15 +226,31 @@ def link(Input,OutDti,OutT2):
     if not os.path.isfile(O1+'.nii.gz'):
         u.ni_creator(12,O1+'.nii.gz')
     if os.stat(O1+'.nii.gz').st_size == 0:
-        u.merge(list_Dti,O1+'.nii.gz')
+        img1 =u.merge(list_Dti,O1+'.nii.gz')
+        if img1 == -1:
+            error_file.write("merge liste vide"+O1)
+        if img1 == 1:
+            error_file.write("merge file "+O1+'.nii.gz'+" inexistant")
     if not os.path.isfile(OutDti) or os.stat(OutDti).st_size == 0:
-        u.json_merge(list_Dti,OutDti)
+        imj1 = u.json_merge(list_Dti,OutDti)
+        if imj1 == -1:
+            error_file.write("merge liste vide"+OutDti)
+        if imj1 == 1:
+            error_file.write("merge file "+OutDti+" inexistant")
     if not os.path.isfile(O2+'.nii.gz'):
         u.ni_creator(12,O2+'.nii.gz')
     if os.stat(O2+'.nii.gz').st_size == 0:
-        u.merge(list_multiT2,O2+'.nii.gz')
+       img2 = u.merge(list_multiT2,O2+'.nii.gz')
+       if img2 == -1:
+            error_file.write("merge liste vide"+O2)
+       if img2 == 1:
+            error_file.write("merge file "+O2+'.nii.gz'+" inexistant")
     if not os.path.isfile(OutT2) or os.stat(OutT2).st_size == 0:
-        u.json_merge(list_multiT2, OutT2)
+        imj2 = u.json_merge(list_multiT2, OutT2)
+        if imj2 == -1:
+            error_file.write("merge liste vide"+OutT2)
+        if imj2 == 1:
+            error_file.write("merge file "+OutT2+" inexistant")
     
 
 
@@ -242,7 +276,10 @@ if __name__ == "__main__":
     Base = vars(options)['name']
     if Base == None or (not os.path.isdir(Base)):
         Base = os.getcwd()
-
+    
+    error_file = open(Base+'/error_file.txt','w')
+    os.chmod(Base+'/error_file.txt',0o777)
+    
     BaseIN = os.path.join(Base,'raw')
     BaseOUT = os.path.join(Base,'Convert')
     BaseMerge = os.path.join(Base,'Merge')
@@ -259,28 +296,34 @@ if __name__ == "__main__":
     for file in os.listdir(BaseIN):
         if(os.path.isdir(os.path.join(BaseIN,file)) and file != 'cleaning_data'):
             Input  = os.path.join(BaseIN,file)
-            name = u.get_name(os.path.join(Input,'subject'),file,'SUBJECT_study_name')
+            if os.path.isfile(os.path.join(Input,'subject')):
+                name = u.get_name(os.path.join(Input,'subject'),file,'SUBJECT_study_name')
+            else:
+                error_file.write("get_name "+os.path.join(Input,'subject'))
+                continue
             Output = os.path.join(BaseOUT, name)
             t1 = time.time()
             u.create_folder(Output,replace)
-            convert(Input,Output)
+            convert(Input,Output,error_file)
             t2 = time.time()
             tConv += t2-t1
             f1 = os.path.join(Dti,'data_'+str(d))
             f2 = os.path.join(T2,'data_'+str(d))
             u.create_folder(f1,replace)
             u.create_folder(f2,replace)
-            link(Output,f1,f2)
+            link(Output,f1,f2,error_file)
             t3 = time.time()
             tMerg += t3-t2 
             
             # A changer
             acqp = os.path.join(f1,'acqparams.txt')
             a = open(acqp,'w')
+            os.chmod(acqp,0o777)
             a.write("0 -1 0 0.095")
             a.close()
             
             d=d+1
+    error_file.close()
             
     print("temps de convertion",tConv)
     print("temps de concatenation",tMerg)
