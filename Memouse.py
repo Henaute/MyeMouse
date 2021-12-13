@@ -41,15 +41,20 @@ def convert(Input,Out,error_file):
                             B=1
                             
                     if(B==0):
-                        os.system('dcm2niix -f ' + g + Option + g + ' -p n -z y -o ' + g + Out + g +' '+ g + In + g)
-                    
-                        if os.path.isfile(path_out+'.nii.gz')==False:
-                                print(colored(str(file_name),'magenta'),colored('was not converted','red'))
-                                error_file.write("convert "+path_out+" was not converted")
-                                #time.sleep(2)
+                        os.system('/Applications/MRIcron.app/Contents/Resources/dcm2niix -f ' + g + Option + g + ' -p n -z y -o ' + g + Out + g +' '+ g + In + g)
+                        
+                        for ln in os.listdir(Out):
+
+                            if '01_Localizer' in ln:
+                                
+                                B=1
+                                
+                        if (B==0):
+                            print(colored(str(file_name),'magenta'),colored('was not converted','red'))
+                            error_file.write("convert "+path_out+" was not converted \n")
+                            #time.sleep(2)
                         else:
                             print(colored(str(file_name),'cyan'),'was converted to',colored(Option,'green'))
-                            os.chmod(path_out+'.nii.gz',0o777)
                             #time.sleep(1)
                     else:
                         print(colored(str(file_name),'cyan'),'already converted to',colored(Option,'green'))
@@ -62,15 +67,18 @@ def convert(Input,Out,error_file):
                             B=1
                             
                     if(B==0):
-                        os.system('dcm2niix -f ' + g + Option + g + ' -p n -z y -o ' + g + Out + g +' '+ g + In + g)
-                    
-                        if os.path.isfile(path_out+'.nii.gz')==False:
-                                print(colored(str(file_name),'magenta'),colored('was not converted','red'))
-                                error_file.write("convert "+path_out+" was not converted")
-                                #time.sleep(2)
+                        os.system('/Applications/MRIcron.app/Contents/Resources/dcm2niix -f ' + g + Option + g + ' -p n -z y -o ' + g + Out + g +' '+ g + In + g)
+                        
+                        for fn in os.listdir(Out):
+                            #print(fn)
+                            if '05_T2map_MSME' in fn:
+                                B=1
+                        if (B==0):
+                            print(colored(str(file_name),'magenta'),colored('was not converted','red'))
+                            error_file.write("convert "+path_out+" was not converted \n")
+                            #time.sleep(2)
                         else:
                             print(colored(str(file_name),'cyan'),'was converted to',colored(Option,'green'))
-                            os.chmod(path_out+'.nii.gz',0o777)
                             #time.sleep(1)
                     else:
                         print(colored(str(file_name),'cyan'),'already converted to',colored(Option,'green'))
@@ -78,12 +86,12 @@ def convert(Input,Out,error_file):
                     
                 else:
 
-                    os.system('dcm2niix -f ' + g + Option + g + ' -p n -z y -o ' + g + Out + g +' '+ g + In + g)
+                    os.system('/Applications/MRIcron.app/Contents/Resources/dcm2niix -f ' + g + Option + g + ' -p n -z y -o ' + g + Out + g +' '+ g + In + g)
                     
                     if os.path.isfile(path_out+'.nii.gz')==False:
-                            print(colored(str(file_name),'magenta'),colored('was not converted','red'))
-                            error_file.write("convert "+path_out+" was not converted")
-                            #time.sleep(2)
+                        print(colored(str(file_name),'magenta'),colored('was not converted','red'))
+                        error_file.write("convert "+path_out+" was not converted \n")
+                        #time.sleep(2)
                     else:
                         print(colored(str(file_name),'cyan'),'was converted to',colored(Option,'green'))
                         #time.sleep(1)
@@ -228,29 +236,29 @@ def link(Input,OutDti,OutT2,error_file):
     if os.stat(O1+'.nii.gz').st_size == 0:
         img1 =u.merge(list_Dti,O1+'.nii.gz')
         if img1 == -1:
-            error_file.write("merge liste vide"+O1)
+            error_file.write("merge liste vide "+O1+"\n")
         if img1 == 1:
-            error_file.write("merge file "+O1+'.nii.gz'+" inexistant")
+            error_file.write("merge file "+O1+'.nii.gz'+" inexistan \nt")
     if not os.path.isfile(OutDti) or os.stat(OutDti).st_size == 0:
         imj1 = u.json_merge(list_Dti,OutDti)
         if imj1 == -1:
-            error_file.write("merge liste vide"+OutDti)
+            error_file.write("merge liste vide "+OutDti+"\n")
         if imj1 == 1:
-            error_file.write("merge file "+OutDti+" inexistant")
+            error_file.write("merge file "+OutDti+" inexistant \n")
     if not os.path.isfile(O2+'.nii.gz'):
         u.ni_creator(12,O2+'.nii.gz')
     if os.stat(O2+'.nii.gz').st_size == 0:
        img2 = u.merge(list_multiT2,O2+'.nii.gz')
        if img2 == -1:
-            error_file.write("merge liste vide"+O2)
+            error_file.write("merge liste vide"+O2+"\n")
        if img2 == 1:
-            error_file.write("merge file "+O2+'.nii.gz'+" inexistant")
+            error_file.write("merge file "+O2+'.nii.gz'+" inexistant \n")
     if not os.path.isfile(OutT2) or os.stat(OutT2).st_size == 0:
         imj2 = u.json_merge(list_multiT2, OutT2)
         if imj2 == -1:
-            error_file.write("merge liste vide"+OutT2)
+            error_file.write("merge liste vide"+OutT2+"\n")
         if imj2 == 1:
-            error_file.write("merge file "+OutT2+" inexistant")
+            error_file.write("merge file "+OutT2+" inexistant \n")
     
 
 
@@ -299,7 +307,7 @@ if __name__ == "__main__":
             if os.path.isfile(os.path.join(Input,'subject')):
                 name = u.get_name(os.path.join(Input,'subject'),file,'SUBJECT_study_name')
             else:
-                error_file.write("get_name "+os.path.join(Input,'subject'))
+                error_file.write("get_name "+os.path.join(Input,'subject')+"\n")
                 continue
             Output = os.path.join(BaseOUT, name)
             t1 = time.time()
