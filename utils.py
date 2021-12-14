@@ -41,7 +41,7 @@ def ni_writer(data,output):
 def merge(inlist, out_file,error_file):
     if len(inlist)==0:
         return -1
-    elif os.path.isfile(out_file):
+    elif not os.path.isfile(out_file):
         return 1
    # assert len(inlist)!=0, "Your list is empty"
     #assert os.path.isfile(out_file), "Your output file appears inexistant. Please check the path"

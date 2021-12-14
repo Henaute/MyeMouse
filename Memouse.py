@@ -6,6 +6,7 @@ Created on Fri Oct 15 11:57:42 2021
 @author: Eliott Henaut & Nicolas Bioul
 """
 import utils as u
+import Elikopy as Ep
 import os
 import re
 import shutil
@@ -27,29 +28,37 @@ def convert(Input,Out,error_file):
             elif os.path.isfile(In+'/acqp'):
                 Option = u.get_name(In+'/acqp',str(file_name),'ACQ_protocol_name')
             else:
-                error_file.write("get_name "+In+'/visu_pars')
+                error_file.write("Fonction get_name: dont find"+In+'/visu_pars'+"or "+In+'/acqp')
                 continue
             
             path_out = os.path.join(Out, Option)
 
             if(os.path.isfile(In)==False and os.path.isfile(path_out+'.nii.gz')==False):  # convert only directory not file 
-                print('\n')
-                print(Option)
-                print('\n')
-                if (Option+'.nii.gz' in os.listdir(Out) or Option+'.nii' in os.listdir(Out)):
-                    print(colored(str(file_name),'cyan'),'already converted to',colored(Option,'green'))
-                else:        
-                    os.system('/Applications/MRIcron.app/Contents/Resources/dcm2niix -f ' + g + Option + g + ' -p n -z y -o ' + g + Out + g +' '+ g + In + g)
-                    if (Option+'.nii.gz' in os.listdir(Out) or Option+'.nii' in os.listdir(Out)):
-                        print(colored(str(file_name),'cyan'),'was converted to',colored(Option,'green'))
-                        os.chmod(path_out+'.nii.gz',0o777)
+                if 'Localizer' in Option:
+                    if(Option+'_i00001.nii.gz' in os.listdir(Out) or Option+'_i00001.nii' in os.listdir(Out) or Option+'_i00002.nii.gz' in os.listdir(Out) or Option+'_i00002.nii' in os.listdir(Out) or Option+'_i00003.nii.gz' in os.listdir(Out) or Option+'_i00003.nii' in os.listdir(Out)):
+                        print(colored(str(file_name),'cyan'),'already converted to',colored(Option,'green'))
                     else:
-                        if 'Localizer' in Option and (Option+'_i00001.nii.gz' in os.listdir(Out) or Option+'_i00001.nii' in os.listdir(Out) or Option+'_i00002.nii.gz' in os.listdir(Out) or Option+'_i00002.nii' in os.listdir(Out) or Option+'_i00003.nii.gz' in os.listdir(Out) or Option+'_i00003.nii' in os.listdir(Out)):
+                        os.system('/Applications/MRIcron.app/Contents/Resources/dcm2niix -f ' + g + Option + g + ' -p n -z y -o ' + g + Out + g +' '+ g + In + g)
+                        #os.system('dcm2niix -f ' + g + Option + g + ' -p n -z y -o ' + g + Out + g +' '+ g + In + g)
+                        if(Option+'_i00001.nii.gz' in os.listdir(Out) or Option+'_i00001.nii' in os.listdir(Out) or Option+'_i00002.nii.gz' in os.listdir(Out) or Option+'_i00002.nii' in os.listdir(Out) or Option+'_i00003.nii.gz' in os.listdir(Out) or Option+'_i00003.nii' in os.listdir(Out)):
                             print(colored(str(file_name),'cyan'),'was converted to',colored(Option,'green'))
                         else:
                             print(colored(str(file_name),'magenta'),colored('was not converted','red'))
+                            error_file.write("Function Convert: "+path_out+" was not converted \n")          
+                else:
+                        
+                    if (Option+'.nii.gz' in os.listdir(Out) or Option+'.nii' in os.listdir(Out)):
+                        print(colored(str(file_name),'cyan'),'already converted to',colored(Option,'green'))
+                    else:        
+                        os.system('/Applications/MRIcron.app/Contents/Resources/dcm2niix -f ' + g + Option + g + ' -p n -z y -o ' + g + Out + g +' '+ g + In + g)
+                        #os.system('dcm2niix -f ' + g + Option + g + ' -p n -z y -o ' + g + Out + g +' '+ g + In + g)
+                        if (Option+'.nii.gz' in os.listdir(Out) or Option+'.nii' in os.listdir(Out)):
+                            print(colored(str(file_name),'cyan'),'was converted to',colored(Option,'green'))
+                            os.chmod(path_out+'.nii.gz',0o777)
+                        else:
+                            print(colored(str(file_name),'magenta'),colored('was not converted','red'))
                             error_file.write("Function Convert: "+path_out+" was not converted \n")
-                            
+                        
                 file=open(In+'/method','r')
                 a=[]
                 b=[]
@@ -71,7 +80,7 @@ def convert(Input,Out,error_file):
 
                         j=file.readline()
                         while ('#' not in j and '$' not in j):
-                            a.append(list(re.findall("[+-]?\d+\.\d+", j)))
+                            a.append(list(re.findall("[+-]?\d+\.\d+|\d+", j)))
 
                             j=file.readline()
                     line=file.readline()
@@ -127,10 +136,9 @@ def link(Input,OutDti,OutT2,error_file):
     os.chmod(O1+'.bvec',0o777)
     fbval = open(O1+'.bval', 'w+')  # open file bvec in write mode
     os.chmod(O1+'.bval',0o777)
-    indx = open(OutDti+'/index.txt','w+')
     list_Dti=[]
     list_multiT2=[]
-    for i in range(1,20):
+    for i in range(1,25):
         #print(i)
         if i<10:
             c ='0'+str(i)
@@ -179,21 +187,23 @@ def link(Input,OutDti,OutT2,error_file):
     fbvec.close()
     fbval.close()
     fbval=open(O1+'.bval','r+')
+    indx = open(OutDti+'/index.txt','w+')
     line=fbval.readline()
     while line:
         indx.write('1 ')
         line=fbval.readline()
     fbval.close()
     indx.close()
+    
     if not os.path.isfile(O1+'.nii.gz'):
         u.ni_creator(12,O1+'.nii.gz')
-    if os.stat(O1+'.nii.gz').st_size == 0:
+    if os.stat(O1+'.nii.gz').st_size <= 111:
         img1 =u.merge(list_Dti,O1+'.nii.gz',error_file)
         if img1 == -1:
             error_file.write("merge liste vide "+O1+"\n")
         if img1 == 1:
             error_file.write("merge file "+O1+'.nii.gz'+" inexistant \n")
-    if not os.path.isfile(OutDti) or os.stat(OutDti).st_size == 0:
+    if not os.path.isfile(OutDti) or os.stat(OutDti).st_size <= 111:
         imj1 = u.json_merge(list_Dti,OutDti,error_file)
         if imj1 == -1:
             error_file.write("merge liste vide "+OutDti+"\n")
@@ -201,13 +211,13 @@ def link(Input,OutDti,OutT2,error_file):
             error_file.write("merge file "+OutDti+" inexistant \n")
     if not os.path.isfile(O2+'.nii.gz'):
         u.ni_creator(12,O2+'.nii.gz')
-    if os.stat(O2+'.nii.gz').st_size == 0:
+    if os.stat(O2+'.nii.gz').st_size <= 111:
        img2 = u.merge(list_multiT2,O2+'.nii.gz',error_file)
        if img2 == -1:
             error_file.write("merge liste vide"+O2+"\n")
        if img2 == 1:
             error_file.write("merge file "+O2+'.nii.gz'+" inexistant \n")
-    if not os.path.isfile(OutT2) or os.stat(OutT2).st_size == 0:
+    if not os.path.isfile(OutT2) or os.stat(OutT2).st_size <= 111:
         imj2 = u.json_merge(list_multiT2, OutT2,error_file)
         if imj2 == -1:
             error_file.write("merge liste vide"+OutT2+"\n")
@@ -227,10 +237,13 @@ if __name__ == "__main__":
                       help='path of data')
     parser.add_option('-r','--replace',dest = 'replace',
                       help='replace data True/False')
+    parser.add_option('-e','--elikopy',dest = 'elikopy',
+                      help='pre-processing data with elikopy: True/False')
+    
     (options,args) = parser.parse_args()
     #makeFile(options)
     replace = vars(options)['replace']
-    if replace in ['False','false','F','f','Flase','flase','Fasle','fasle','Faux','faux']:
+    if replace in ['False','false','F','f','Flase','flase','Fasle','fasle','Faux','faux','Non','non','no','No']:
         replace = False
     else:
         replace = True
@@ -286,9 +299,25 @@ if __name__ == "__main__":
             
             d=d+1
     error_file.close()
-            
-    print("temps de convertion",tConv)
-    print("temps de concatenation",tMerg)
+    
+    preproc = vars(options)['elikopy']
+    if preproc in ['False','false','F','f','Flase','flase','Fasle','fasle','Faux','faux','Non','non','no','No']:
+        print("no pré-processing")
+        print("temps de convertion",tConv)
+        print("temps de concatenation",tMerg)
+    else:
+
+        Ep.Process(Dti)
+        t4 = time.time()
+        
+        tProc = t4-t3
+                
+        print("temps de convertion",tConv)
+        print("temps de concatenation",tMerg)
+        print("temps de pré-processing",tProc)
+    
+    
+    
     
     
     
