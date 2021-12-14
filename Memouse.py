@@ -252,7 +252,7 @@ if __name__ == "__main__":
     if Base == None or (not os.path.isdir(Base)):
         Base = os.getcwd()
     
-    error_file = open(Base+'/error_file.txt','w')
+    error_file = open(Base+'/error_file.txt','w+')
     os.chmod(Base+'/error_file.txt',0o777)
     
     BaseIN = os.path.join(Base,'raw')
@@ -299,6 +299,10 @@ if __name__ == "__main__":
             
             d=d+1
     error_file.close()
+    if os.path.getsize(Base+'/error_file.txt') == 0:
+        error_file = open(Base+'/error_file.txt','w+')
+        error_file.write('During the execution, no errors were encountered. good job.')
+        error_file.close()
     
     preproc = vars(options)['elikopy']
     if preproc in ['False','false','F','f','Flase','flase','Fasle','fasle','Faux','faux','Non','non','no','No']:
