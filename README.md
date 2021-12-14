@@ -1,2 +1,0 @@
-# MyeMouse
-Myéline Mouse expériment

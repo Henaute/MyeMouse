@@ -38,7 +38,7 @@ def ni_creator(data,output): #out is a path: '/Users/nicolasbioul/Desktop/Thesis
 def ni_writer(data,output):
     data.to_filename(output)
 
-def merge(inlist, out_file):
+def merge(inlist, out_file,error_file):
     if len(inlist)==0:
         return -1
     elif os.path.isfile(out_file):
@@ -54,7 +54,7 @@ def merge(inlist, out_file):
             shutil.rmtree(out_file)
             out_file.replace('.nii.gz','_error.txt')
             print(colored('Error file generated: T2 merging failed','red'))
-            time.sleep(2)
+            error_file.write('Function Merge: Error file generated, T2 merging failed in'+ out_file+'  ')
             f=open(out_file,'w+')
             os.chmod(out_file,0o777)
             f.write('An error occured during merging multi T2. Please check the input data in order to retry merging. Common errors in merging include wrong dimensions in files, empty files or corrupted files given as an argument.')
@@ -67,14 +67,14 @@ def merge(inlist, out_file):
             shutil.rmtree(out_file)
             out_file.replace('.nii.gz','_error.txt')
             print(colored('Error file generated: Diffusion merging failed','red'))
-            time.sleep(2)
+            error_file.write('Function Merge: Error file generated, Diffusion merging failed in'+ out_file+'  ')
             f=open(out_file,'w+')
             os.chmod(out_file,0o777)
             f.write('An error occured during diffusion merging. Please check the input data in order to retry merging. Common errors in merging include wrong dimensions in files, empty files or corrupted files given as an argument.')
             f.close()
     return 0
 
-def json_merge(jlist,Out):
+def json_merge(jlist,Out,error_file):
     if len(jlist)==0:
         return -1
     elif os.path.isfile(Out):
