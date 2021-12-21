@@ -26,7 +26,6 @@ def WhiteLine(img,L):
     for i in range(y):
         if not compare(img[L][i],[255,255,255]):
                    return False
-
     return True
 
 def WhiteCol(img,C):
@@ -55,6 +54,7 @@ def Reshape(img,tol=1):
         boo = True
 
         while boo:
+            print("top",incr)
             if not WhiteLine(img, tol+incr):
                 xDebut = incr
                 boo = False
@@ -67,6 +67,7 @@ def Reshape(img,tol=1):
         boo = True
 
         while boo:
+            print("bottom",incr)
             if not WhiteLine(img, X-(tol+incr)):
                 xFin = X-incr
                 boo = False
@@ -80,6 +81,7 @@ def Reshape(img,tol=1):
         boo = True
 
         while boo:
+            print("Left",incr)
             if not WhiteCol(img, tol+incr):
                 yDebut = incr
                 boo = False
@@ -92,6 +94,7 @@ def Reshape(img,tol=1):
         boo = True
 
         while boo:
+            print("Right",incr)
             if not WhiteCol(img, Y-(tol+incr)):
                 yFin = Y-incr
                 boo = False
@@ -104,12 +107,12 @@ def Reshape(img,tol=1):
 
     
 def cut(pathIn,pathOut,n,ptol=1000):
-    cutl=np.zeros(n+1)
+    cutl=np.zeros(n+1,dtype=int)
     img=cv2.imread(pathIn)
     x=img.shape[0]
-    cutl[-1]=x
+    cutl[n]=x
     part=int(x/n)
-    tol =x/ptol
+    tol =int(x/ptol)
     
     for i in range(1,n):
         
@@ -119,7 +122,7 @@ def cut(pathIn,pathOut,n,ptol=1000):
         while boo:
             p+=1      
             incr=(-1)**p*int(p/2)*int(tol/10)
-            print(incr)
+            #print(incr)
             
             if WhiteLine(img, (i*part)+incr):
                 if not WhiteLine(img, (i*part)+incr+tol):
@@ -132,12 +135,13 @@ def cut(pathIn,pathOut,n,ptol=1000):
         cutl[i] = (i*part)+incr
         
     for i in range(n):
+        range(n)
         print(cutl[i])
         cv2.imwrite(pathOut+'/Cut_'+str(i)+'.tiff',Reshape(img[cutl[i]:cutl[i+1],:,:],tol))
     
     
     
     
-cut('/Users/nicolasbioul/Desktop/Thesis/Histological data/1_Wholeslide_Default_Extended(open_with_Cytomine).tif','/Users/nicolasbioul/Desktop/Thesis/split_histo/',3)
+cut('/Users/nicolasbioul/Desktop/Thesis/Histological_data/1/1_Wholeslide_Default_Extended.tif','/Users/nicolasbioul/Desktop/Thesis/split_histo/',3)
  
     
