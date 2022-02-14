@@ -5,14 +5,34 @@ Created on Fri Oct 15 11:57:42 2021
 @author: Eliott Henaut & Nicolas Bioul
 """
 
+import sys
+import importlib.util
 import os
+import re
 import shutil
-import numpy as np
+import time
+
+imports=['easygui','dipy','matplotlib.pyplot','os','re','nibabel','numpy','cv2','bruker2nifti.converter','optparse']
+for name in imports:
+    if name in sys.modules:
+        print(f"{name!r} already in sys.modules")
+    elif (spec := importlib.util.find_spec(name)) is not None:
+        # If you choose to perform the actual import ...
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+        print(f"{name!r} has been imported")
+    else:
+        print(f"can't find the {name!r} module")
+    
+import easygui as egui
+import dipy as dp
+import matplotlib.pyplot as plt
 import nibabel as nib
+import numpy as np
+import cv2
 from bruker2nifti.converter import Bruker2Nifti
 from optparse import OptionParser
-import re
-import time
 
 def create_folder(path, replace=True):
     if replace:
@@ -173,7 +193,7 @@ if __name__ == '__main__':
     parser.add_option('-r','--replace',dest = 'replace',
                       help='replace data True/False')
     parser.add_option('-s','--Stop',dest = 'Stop',
-                      help='nomber of file convert')
+                      help='number of file convert')
     #parser.add_option('-e','--elikopy',dest = 'elikopy',
     #                  help='pre-processing data with elikopy: True/False')
     
@@ -190,14 +210,19 @@ if __name__ == '__main__':
         replace = False
     else:
         replace = True
-        
+
     Base = vars(options)['name']
-    if Base == None or (not os.path.isdir(Base)):
-        print("The path of dicom is not correct. pls try again. \n")
-        quit()
-        #Base = '/Users/eliotthenaut/Desktop/Mémoire'
-
-
+    if type(Base)==type(None):
+        while Base == None or (not os.path.isdir(Base)):
+            print("The path of dicom is not correct. pls try again. \n")
+            Base = egui.diropenbox()
+    else:
+        if os.path.exists(Base) and os.path.isdir(Base):
+            pass
+        else:
+            while(not os.path.exists(Base) and not os.path.isdir(Base)):
+                Base = egui.diropenbox()    
+                
     BaseIN = os.path.join(Base,'raw')
     BaseOUT = os.path.join(Base,'Convert')
     create_folder(BaseOUT,replace)
