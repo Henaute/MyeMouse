@@ -12,7 +12,7 @@ import re
 import shutil
 import time
 
-imports=['easygui','dipy','matplotlib.pyplot','os','re','nibabel','numpy','cv2','bruker2nifti.converter','optparse']
+imports=['easygui','dipy','matplotlib.pyplot','nibabel','numpy','cv2','bruker2nifti.converter','optparse']
 for name in imports:
     if name in sys.modules:
         print(f"{name!r} already in sys.modules")
@@ -212,7 +212,7 @@ if __name__ == '__main__':
         replace = True
 
     Base = vars(options)['name']
-    if type(Base)==type(None):
+    if Base==None:
         while Base == None or (not os.path.isdir(Base)):
             print("The path of dicom is not correct. pls try again. \n")
             Base = egui.diropenbox()

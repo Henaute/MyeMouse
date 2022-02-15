@@ -6,13 +6,37 @@ Created on Wed Dec 15 15:28:37 2021
 @author: nicolas bioul & eliott henaut
 """
 
+import sys
+import importlib.util
 import os
-import numpy as np
+import re
+import shutil
+import time
+
+imports=['easygui','dipy','matplotlib.pyplot','os','re','nibabel','numpy','cv2','bruker2nifti.converter','optparse']
+for name in imports:
+    if name in sys.modules:
+        print(f"{name!r} already in sys.modules")
+    elif (spec := importlib.util.find_spec(name)) is not None:
+        # If you choose to perform the actual import ...
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+        print(f"{name!r} has been imported")
+    else:
+        print(f"can't find the {name!r} module")
+    
+import easygui as egui
+import dipy as dp
 import matplotlib.pyplot as plt
-import utils
+import nibabel as nib
+import numpy as np
 import cv2
+from bruker2nifti.converter import Bruker2Nifti
+from optparse import OptionParser
 
 def compare(a,b):
+    a,b
     if len(a)!=len(b):
         return False
     else:
@@ -20,8 +44,25 @@ def compare(a,b):
             if a[i]!=b[i]:
                 return False
     return True
-"""       
-def Reshape(img,tol=1,mini=10):
+
+def WhiteLine(img,L):
+    y = img.shape[1]
+    L
+    for i in range(y):
+        if not compare(img[L][i],[255,255,255]):
+                   return False
+
+    return True
+
+def WhiteCol(img,C):
+    x = img.shape[0]
+    for i in range(x):
+        if not compare(img[i][C],[255,255,255]):
+                   return False
+
+    return True
+
+def Reshape(img,tol=1):
     X,Y=img.shape[0],img.shape[1]
     
     xDebut = 0
@@ -29,231 +70,158 @@ def Reshape(img,tol=1,mini=10):
     yDebut = 0
     yFin = Y
     
-    #TOP
-    boolean=True
-    j=0
-    while boolean==True:
-        j+=10
-        for i in range(Y):
-            if not compare(img[j][i],[255,255,255]): 
-                j-=10
-                boolean = False
-                if j>tol+mini:
-                    xDebut=j-tol
-                break
-            
-    #BOTTOM
-    boolean=True
-    j=0
-    while boolean==True:
-        j+=10
-        for i in range(Y):
-            if not compare(img[X-j][i],[255,255,255]): 
-                j-=10
-                boolean = False
-                if j>tol+mini:
-                    xFin=X-j+tol
-                break
-            
-    #LEFT
-    boolean=True
-    j=0
-    while boolean==True:
-        j+=10
-        for i in range(X):
-            if not compare(img[i][j],[255,255,255]): 
-                j-=10
-                boolean = False
-                if j>tol+mini:
-                    yDebut=j-tol
-                break
-        
-    #RIGHT
-    boolean=True
-    j=0
-    while boolean==True:
-        j+=10
-        for i in range(X):
-            if not compare(img[i][Y-j],[255,255,255]): 
-                j-=10
-                boolean = False
-                if j>tol+mini:
-                    yFin=Y-j+tol
-                break
-    
-    img = img[xDebut:xFin,yDebut:yFin,:]
-    #plt.imshow(img)
-    return img
-"""
-def Reshape(img,tol=1,incr1=1):
-    X,Y=img.shape[0],img.shape[1]
-    
-    xDebut = 0
-    xFin = X
-    yDebut = 0
-    yFin = Y
-    
-    if tol<25:
-        tol=25
+    if tol<30:
+        tol=30
         
     # TOP
-    bo = True
-    for i in range(Y):
-            if not compare(img[tol][i],[255,255,255]): 
-                print("tolerance trop grande pour TOP")
-                bo = False
-                break
-    
-    incr = 1
-    boo = True
-    if bo:
+    if WhiteLine(img, tol):
+        
+        incr = 1
+        boo = True
+
         while boo:
-            for i in range(Y):
-                if not compare(img[tol+incr][i],[255,255,255]): 
-                    xDebut = incr-incr1
-                    boo = False
-                    break
-            incr+=incr1
+            if not WhiteLine(img, tol+incr):
+                xDebut = incr
+                boo = False
+            incr+=tol//5
+            print('Top: ',tol+incr)
  
     # BOTTOM
-    bo = True
-    for i in range(Y):
-            if not compare(img[X-tol][i],[255,255,255]): 
-                print("tolerance trop grande pour BOTTOM")
-                bo = False
-                break
-            
-    incr = 1
-    boo = True
-    if bo:
+    if WhiteLine(img,X-tol):
+        
+        incr = 1
+        boo = True
+
         while boo:
-            for i in range(Y):
-                if not compare(img[X-(tol+incr)][i],[255,255,255]): 
-                    xFin = X-incr
-                    boo = False
-                    break
-            incr+=incr1
+            if not WhiteLine(img, X-(tol+incr)):
+                xFin = X-incr
+                boo = False
+            incr+=tol//5
+            print('Bottom:',X-(tol+incr))
+
             
     # LEFT
-    bo = True
-    for i in range(X):
-            if not compare(img[i][tol],[255,255,255]): 
-                print("tolerance trop grande pour LEFT")
-                bo = False
-                break
-            
-    incr = 1
-    boo = True
-    if bo:
+    if WhiteCol(img, tol):
+        
+        incr = 1
+        boo = True
+
         while boo:
-            for i in range(X):
-                if not compare(img[i][tol+incr],[255,255,255]): 
-                    yDebut = incr-incr1
-                    boo = False
-                    break
-            incr+=incr1
+            if not WhiteCol(img, tol+incr):
+                yDebut = incr
+                boo = False
+            incr+=tol//5
+            print('LEFT: ',tol+incr)
 
     # RIGHT
-    bo = True
-    for i in range(X):
-            if not compare(img[i][X-tol],[255,255,255]): 
-                print("tolerance trop grande pour RIGHT")
-                bo = False
-                break
-            
-    incr = 1
-    boo = True
-    if bo:
+    if WhiteCol(img, Y-tol):
+        
+        incr = 1
+        boo = True
+
         while boo:
-            for i in range(X):
-                if not compare(img[i][X-(tol+incr)],[255,255,255]): 
-                    yFin = Y-incr
-                    boo = False
-                    break
-            incr+=incr1
-            
+            if not WhiteCol(img, Y-(tol+incr)):
+                yFin = Y-incr
+                boo = False
+            incr+=tol//10
+            print('RIGHT: ',Y-(tol+incr))
     
     img = img[xDebut:xFin,yDebut:yFin,:]
     
     return img
-
-def is_white(line):
-    y=line.shape[0]
-    for j in range(y):
-        if not compare(line[j],[255,255,255]):
-            return False
-    return True
-                
-    
-def cut(pathIn,pathOut,n,tol=1000):
-    cutl=[0]*(n+1)
-    img=cv2.imread(pathIn)
-    x,y=img.shape[0],img.shape[1]
-    cutl[-1]=x
-    part=int(x/n)
-    for i in range(1,n):
-        if is_white(img[(i*part)]):
-            #test 40 AU DESSUS ET EN DESSOUS
-            bln=False
-            incr=int(x/tol)
-            while bln==False and incr>0:
-                if is_white(img[(i*part)+incr]):
-                    l=img[(i*part)+incr
-                    #test 40 AU DESSOUS
-                    #TODO
-                    bln=True
-                if is_white(img[(i*part)-incr]):
-                    l=img[(i*part)-incr
-                    #test 40 AU DESSUS
-                    #TODO
-                    bln=True
-                incr-=10
-            pass
         
-        else:
-            bln=False
-            incr=1
-            while bln==False:
-                if is_white(img[(i*part)+incr]):
-                    l=img[(i*part)+incr
-                    #test 40 AU DESSOUS
-                    #TODO
-                    bln=True
-                
-                if is_white(img[(i*part)-incr]):
-                    l=img[(i*part)-incr
-                    #test 40 AU DESSUS
-                    #TODO
-                    bln=True
-                incr+=1
 
-"""
-def cut(pathIn,pathOut,n,tol=1000):
-    cutl=[0]*(n+1)
+    
+def cut(pathIn,pathOut,n,ptol=1000):
+    cutl=np.zeros(n+1,dtype=int)
     img=cv2.imread(pathIn)
-    x,y=img.shape[0],img.shape[1]
+    x=img.shape[0]
     cutl[-1]=x
-    part=int(x/n)
+    part=x//n
+    tol =x//ptol
+    
     for i in range(1,n):
         boo=True
         incr=0
-        p=0
-        con=0
+        p=-1
         while boo:
-            bo=True
-            for j in range(y):
-                if not compare(img[(i*part)+incr][j],[255,255,255]):
-                    boo=True
-                    bo=False
-                    break
-            if bo==True:
-                con+=1
-            if con>=int(x/tol):
-                boo=False   
-            p+=1
-            incr=(-1)**p*int(p/2)
-        cutl[i]=(i*part)+incr
+            p+=1      
+            incr=(-1)**p*int(p/2)*int(tol/5)
+
+            if WhiteLine(img, (i*part)+incr):
+                if not WhiteLine(img, (i*part)+incr+tol):
+                    incr = max(incr-tol,0)
+                elif not WhiteLine(img, (i*part)+incr-tol):
+                    incr = incr+tol
+                else:
+                    boo = False
+        
+        cutl[i] = (i*part)+incr
+    print(cutl)  
     for i in range(n):
-        cv2.imwrite(pathOut+'/Cut_'+str(i+1)+'.tiff',Reshape(img[cutl[i]:cutl[i+1],:,:],int(x/tol),10))
-"""
-cut('/Users/nicolasbioul/Desktop/Thesis/Histological_data/1/1_Wholeslide_Default_Extended.tiff','/Users/nicolasbioul/Desktop/Thesis/split_histo',3)
+        out=pathOut+'/Cut_'+str(i)+'.tiff'
+        print(i)
+        time.sleep(3)
+        cv2.imwrite(out,Reshape(img[cutl[i]:cutl[i+1],:,:],tol))
+    
+
+# Press the green button in the gutter to run the script.
+if __name__ == '__main__':
+    print("Beginning of main")
+    parser = OptionParser()
+    parser.add_option('-n','--name',dest = 'name',
+                      help='path of data')
+    parser.add_option('-r','--replace',dest = 'replace',
+                      help='replace data True/False')
+    parser.add_option('-s','--Stop',dest = 'Stop',
+                      help='number of file convert')
+    #parser.add_option('-e','--elikopy',dest = 'elikopy',
+    #                  help='pre-processing data with elikopy: True/False')
+    
+    (options,args) = parser.parse_args()
+    
+    Stop = vars(options)['Stop']
+    if Stop!=None and int(Stop)>=1:
+        Stop = int(Stop)
+    else:
+        Stop = 100
+
+    replace = vars(options)['replace']
+    if replace in ['False','false','F','f','Flase','flase','Fasle','fasle','Faux','faux','Non','non','no','No','N']:
+        replace = False
+    else:
+        replace = True
+
+    Base = vars(options)['name']
+    if type(Base)==type(None):
+        while Base == None or (not os.path.isdir(Base)):
+            print("The path of dicom is not correct. pls try again. \n")
+            Base = egui.diropenbox()
+    else:
+        if os.path.exists(Base) and os.path.isdir(Base):
+            pass
+        else:
+            while(not os.path.exists(Base) and not os.path.isdir(Base)):
+                Base = egui.diropenbox()    
+    
+    print("Beginning of the loop")
+    Output=os.path.join(Base,'Cuts')
+    if replace==False and os.path.isdir(Output):
+        pass
+    elif replace==True and os.path.isdir(Output):
+        shutil.rmtree(Output)
+        os.mkdir(Output)
+    else:
+        os.mkdir(Output)
+    
+    for file in os.listdir(Base):
+        if (os.path.isdir(os.path.join(Base, file)) and file != '.DS_Store' and file != 'Cuts'):
+            Local_Output=os.path.join(Output,file)
+            if not os.path.isdir(Local_Output):
+                os.mkdir(Local_Output)
+            Input = os.path.join(Base, file)
+            for im in os.listdir(Input):
+                if (im != '.DS_Store') and '.tif' in im:
+                    cut(os.path.join(Input,im),Local_Output,3)
+                    print(im,' has been cut and placed in directory: ', Local_Output)
+            
