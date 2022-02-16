@@ -9,11 +9,11 @@ Created on Wed Dec 15 15:28:37 2021
 import sys
 import importlib.util
 import os
-import re
 import shutil
 import time
+import subprocess
 
-imports=['easygui','dipy','matplotlib.pyplot','os','re','nibabel','numpy','cv2','bruker2nifti.converter','optparse']
+imports=['easygui','dipy','matplotlib.pyplot','os','re','nibabel','numpy','opencv-python','bruker2nifti.converter','optparse']
 for name in imports:
     if name in sys.modules:
         print(f"{name!r} already in sys.modules")
@@ -22,8 +22,10 @@ for name in imports:
         module = importlib.util.module_from_spec(spec)
         sys.modules[name] = module
         spec.loader.exec_module(module)
+        
         print(f"{name!r} has been imported")
     else:
+        subprocess.check_call([sys.executable,"-m","pip","install",name])
         print(f"can't find the {name!r} module")
     
 import easygui as egui
@@ -35,8 +37,16 @@ import cv2
 from bruker2nifti.converter import Bruker2Nifti
 from optparse import OptionParser
 
+def create_folder(path, replace=True):
+    if replace:
+        if os.path.exists(path):
+            shutil.rmtree(path)
+        os.mkdir(path)
+    else:
+        if not os.path.exists(path):
+            os.mkdir(path)
+            
 def compare(a,b):
-    a,b
     if len(a)!=len(b):
         return False
     else:
@@ -45,20 +55,29 @@ def compare(a,b):
                 return False
     return True
 
+def comp(a):
+    #print(a[2])
+    if a[2]<222:
+        return False
+    return True
+
 def WhiteLine(img,L):
     y = img.shape[1]
-    L
-    for i in range(y):
-        if not compare(img[L][i],[255,255,255]):
-                   return False
+    for i in range(y):  
+        #if not compare(img[L][i],[255,255,255]):
+            #return False
+        if not comp(img[L][i]):
+            return False
 
     return True
 
 def WhiteCol(img,C):
     x = img.shape[0]
     for i in range(x):
-        if not compare(img[i][C],[255,255,255]):
-                   return False
+        #if not compare(img[i][C],[255,255,255]):
+            #return False
+        if not comp(img[i][C]):
+            return False
 
     return True
 
@@ -84,7 +103,7 @@ def Reshape(img,tol=1):
                 xDebut = incr
                 boo = False
             incr+=tol//5
-            print('Top: ',tol+incr)
+            #print('Top: ',tol+incr)
  
     # BOTTOM
     if WhiteLine(img,X-tol):
@@ -97,8 +116,7 @@ def Reshape(img,tol=1):
                 xFin = X-incr
                 boo = False
             incr+=tol//5
-            print('Bottom:',X-(tol+incr))
-
+            #print('Bottom:',X-(tol+incr))
             
     # LEFT
     if WhiteCol(img, tol):
@@ -111,7 +129,7 @@ def Reshape(img,tol=1):
                 yDebut = incr
                 boo = False
             incr+=tol//5
-            print('LEFT: ',tol+incr)
+            #print('LEFT: ',tol+incr)
 
     # RIGHT
     if WhiteCol(img, Y-tol):
@@ -123,8 +141,8 @@ def Reshape(img,tol=1):
             if not WhiteCol(img, Y-(tol+incr)):
                 yFin = Y-incr
                 boo = False
-            incr+=tol//10
-            print('RIGHT: ',Y-(tol+incr))
+            incr+=tol//5
+            #print('RIGHT: ',Y-(tol+incr))
     
     img = img[xDebut:xFin,yDebut:yFin,:]
     
@@ -132,7 +150,7 @@ def Reshape(img,tol=1):
         
 
     
-def cut(pathIn,pathOut,n,ptol=1000):
+def cut(pathIn,pathOut,n,ptol=100):
     cutl=np.zeros(n+1,dtype=int)
     img=cv2.imread(pathIn)
     x=img.shape[0]
@@ -147,8 +165,11 @@ def cut(pathIn,pathOut,n,ptol=1000):
         while boo:
             p+=1      
             incr=(-1)**p*int(p/2)*int(tol/5)
-
-            if WhiteLine(img, (i*part)+incr):
+            print(incr)
+            if (i*part)+incr >= len(img):
+                cutl[i] = len(img)
+                boo = False
+            elif WhiteLine(img, (i*part)+incr):
                 if not WhiteLine(img, (i*part)+incr+tol):
                     incr = max(incr-tol,0)
                 elif not WhiteLine(img, (i*part)+incr-tol):
@@ -160,8 +181,7 @@ def cut(pathIn,pathOut,n,ptol=1000):
     print(cutl)  
     for i in range(n):
         out=pathOut+'/Cut_'+str(i)+'.tiff'
-        print(i)
-        time.sleep(3)
+
         cv2.imwrite(out,Reshape(img[cutl[i]:cutl[i+1],:,:],tol))
     
 
@@ -187,7 +207,7 @@ if __name__ == '__main__':
         Stop = 100
 
     replace = vars(options)['replace']
-    if replace in ['False','false','F','f','Flase','flase','Fasle','fasle','Faux','faux','Non','non','no','No','N']:
+    if replace in ['False','false','F','f','Flase','flase','Fasle','fasle','Faux','faux','Non','non','no','No']:
         replace = False
     else:
         replace = True
@@ -206,20 +226,14 @@ if __name__ == '__main__':
     
     print("Beginning of the loop")
     Output=os.path.join(Base,'Cuts')
-    if replace==False and os.path.isdir(Output):
-        pass
-    elif replace==True and os.path.isdir(Output):
-        shutil.rmtree(Output)
-        os.mkdir(Output)
-    else:
-        os.mkdir(Output)
+    create_folder(Output,replace)
     
     for file in os.listdir(Base):
-        if (os.path.isdir(os.path.join(Base, file)) and file != '.DS_Store' and file != 'Cuts'):
+        Input = os.path.join(Base, file)
+        if (os.path.isdir(Input) and file != '.DS_Store' and file != 'Cuts'):
             Local_Output=os.path.join(Output,file)
             if not os.path.isdir(Local_Output):
                 os.mkdir(Local_Output)
-            Input = os.path.join(Base, file)
             for im in os.listdir(Input):
                 if (im != '.DS_Store') and '.tif' in im:
                     cut(os.path.join(Input,im),Local_Output,3)
