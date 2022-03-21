@@ -178,13 +178,15 @@ def cut(pathIn,pathOut,n,ptol=100):
                     boo = False
         
         cutl[i] = (i*part)+incr
-    print(cutl)  
+    print(cutl)
+    
     for i in range(n):
         out=pathOut+'/Cut_'+str(i)+'.tiff'
-
-        cv2.imwrite(out,Reshape(img[cutl[i]:cutl[i+1],:,:],tol))
+        Slice=Reshape(img[cutl[i]:cutl[i+1],:,:],tol)
+        
+        cv2.imwrite(out,Slice)
     
-
+#def halfsies(img,)
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     print("Beginning of main")
