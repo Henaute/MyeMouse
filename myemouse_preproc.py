@@ -1,7 +1,6 @@
 import elikopy
 import numpy as np
 import nibabel as nib
-import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 from dipy.viz import regtools
 from dipy.data.fetcher import fetch_syn_data, read_syn_data
@@ -31,10 +30,11 @@ import os
 denoised = None
 
 def preprocessing(folder_path, patient_path,logs=None):
+    #variable to skip prossess
+    starting_state =None
+
     log_prefix = "[Myemouse Preproc]"
     #logs.write('[Myemouse Preproc] started. Launching preprocessing on data  '+str(dt.datetime.now())+'\n')
-    #starting_state = None
-    starting_state =None
 
     fdwi = folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + patient_path + '_raw_dmri.nii.gz'
     fbval = folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + patient_path + "_raw_dmri.bval"
@@ -44,21 +44,22 @@ def preprocessing(folder_path, patient_path,logs=None):
     fcorr_bval = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/' + patient_path + "_dmri_preproc.bval"
     fcorr_bvec = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/' + patient_path + "_dmri_preproc.bvec"
 
+
+    ############################
+    ### MPPCA Denoising step ###
+    ############################
+    
     denoisingMPPCA_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/denoisingMPPCA/'
     if starting_state is None:
+        
+        print("Start of denoising step", patient_path)
+        
         #logs.write('[Myemouse Preproc] Denoising sequence launched '+str(dt.datetime.now())+'\n')
         data, affine = load_nifti(fdwi)
 
-
-        ############################
-        ### MPPCA Denoising step ###
-        ############################
-        
-        print("Start of denoising step")
         global denoised
         makedir(denoisingMPPCA_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt",
                 log_prefix)
-
 
         import json
         with open(os.path.join(folder_path + '/subjects/',"subj_type.json")) as json_file:
@@ -74,10 +75,9 @@ def preprocessing(folder_path, patient_path,logs=None):
         denoised = data.copy()
 
         print(shell_index, data.shape)
+        
         threads = []
-        for i in range(len(shell_index)):
-            if i == len(shell_index)-1:
-                break
+        for i in range(len(shell_index)-1):
             print("Start of mppca for shell", i, " (index:", shell_index[i],",", shell_index[i+1],")")
             #logs.write('Marcenko-Pastur PCA algorithm launched for shell '+ str(i)+ '(index:'+ str(shell_index[i])+","+ str(shell_index[i+1])+')'+dt.datetime.now()+'\n')
             a = shell_index[i]
@@ -101,12 +101,15 @@ def preprocessing(folder_path, patient_path,logs=None):
     ##############################
     ### Motion correction step ###
     ##############################
+    
     #logs.write('[Myemouse Preproc] Motion correction sequence launched '+str(dt.datetime.now())+'\n') 
     motionCorr_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/motionCorrection/'
     if starting_state is None or starting_state=="motionCorr":
+        
+        print("Motion correction step for subject ", patient_path)
+        
         makedir(motionCorr_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
 
-        print("Motion correction step for subject ", patient_path)
         #logs.write('Motion correction step for subject '+patient_path+dt.datetime.now()+'\n')
         bvals, bvecs = read_bvals_bvecs(fbval, fbvec)
         gtab_corr = gradient_table(bvals, bvecs, b0_threshold=65)
@@ -131,10 +134,7 @@ def preprocessing(folder_path, patient_path,logs=None):
         gtab_precorrection = reorient_bvecs(gtab_corr, reg_affines_precorrection)
         data_b0s = data[..., gtab_corr.b0s_mask]
 
-        static_grid2world = affine
-        moving_grid2world = affine
         data_avg_b0 = data_b0s.mean(axis=-1)
-        static = data_avg_b0
 
         save_nifti(motionCorr_path + patient_path + '_templateB0.nii.gz', data_avg_b0, affine)
         save_nifti(motionCorr_path + patient_path + '_B0S.nii.gz', data_b0s, affine)
@@ -173,32 +173,38 @@ def preprocessing(folder_path, patient_path,logs=None):
         fbvec_corr = motionCorr_path + patient_path + '_motionCorrected.bvec'
         bvals, bvecs = read_bvals_bvecs(fbval_corr, fbvec_corr)
         gtab_corr = gradient_table(bvals, bvecs, b0_threshold=65)
-    print('Starting b0 procedure')
-    b0s=[]
+        
+    
+
+    #############################
+    ### Brain extraction step ###
+    #############################
+    
+    print('Brain extraction step')
+    
+    # created a brain for disign a mask (sum of all shell)
     b0final=np.zeros(data_corr.shape[:-1])
-    count=0
     for i in range(data_corr.shape[-1]):
         #if gtab_corr.bvals[i]<1600 and gtab_corr.bvals[i]>1000: #gtab_corr.b0s_mask[i]:
             b0final+=data_corr[:, :, :, i]
-            count+=1
+
     save_nifti(motionCorr_path + patient_path + '_motionCorrected_SumOfAll.nii.gz',b0final, affine)
     
-
     bvec = gtab_corr.bvecs
     zerobvec = np.where((bvec[:, 0] == 0) & (bvec[:, 1] == 0) & (bvec[:, 2] == 0))
     bvec[zerobvec] = [1, 0, 0]
     save_nifti(motionCorr_path + patient_path + '_motionCorrected.nii.gz', data_corr, affine)
     np.savetxt(motionCorr_path + patient_path + '_motionCorrected.bval', bvals)
     np.savetxt(motionCorr_path + patient_path + '_motionCorrected.bvec', bvec)
+    
     del data_corr
-
-    #############################
-    ### Brain extraction step ###
-    #############################
-    print('Brain extraction step')
+    
     brainExtraction_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/brainExtraction/'
     makedir(brainExtraction_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
+    
+    # funcction to find a mask
     final_mask=mask_Wizard(b0final,4,7,work='2D')
+    
     # Saving
     out = nib.Nifti1Image(final_mask, affine)
     out.to_filename(brainExtraction_path + patient_path + '_mask_b0.nii.gz')
@@ -206,6 +212,7 @@ def preprocessing(folder_path, patient_path,logs=None):
     ################################
     ### Final preprocessing step ###
     ################################
+    
     makedir(folder_path + '/subjects/' + patient_path + '/masks/',
             folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt",
             log_prefix)
@@ -310,21 +317,26 @@ def mask_Wizard(data,r_fill,r_shape,scal=1,geo_shape='ball',work='2D'):
 
     Parameters
     ----------
-    data : TYPE
-        DESCRIPTION.
-    r_fill : TYPE
-        DESCRIPTION.
-    r_shape : TYPE
-        DESCRIPTION.
-    scal : TYPE
-        DESCRIPTION.
-    geo_shape : TYPE, optional
-        DESCRIPTION. The default is 'ball'.
-
+    data : TYPE : ArrayList
+        The brain data that we want to find a mask.
+    r_fill : TYPE : Interger
+        The rayon of the circle,cylinder,or ball that we use for growing the surface.
+    r_shape : TYPE : Interger
+        The rayon of the circle,cylinder,or ball that we use for the opening/closing.
+    scal : TYPE : Interger, optional
+        The param λ in the formul y=µ+λ*σ. y was the threshold if we take the voxel or not.
+        The default is 1.
+    geo_shape : TYPE : String, optional
+        The shape of the convolution in the opening/closing. ('ball','cylinder')
+        The default is 'ball'.
+    work : TYPE : String, optional
+        The dimension. ('2D','3D')
+        The default is '2D'.
+        
     Returns
     -------
-    mask : TYPE
-        DESCRIPTION.
+    mask : TYPE : Arraylist
+        The matrice of the mask, 1 if we take it, O otherwise.
 
     """
     if work=='3D':
@@ -337,8 +349,7 @@ def mask_Wizard(data,r_fill,r_shape,scal=1,geo_shape='ball',work='2D'):
         opening=binary_dilation(binary_erosion(closing,selem=geo_shape))
         mask=np.zeros(opening.shape)
         mask[opening]=1
-        
-    elif(work=='2D'):
+    else:   
         (x,y,z)=data.shape
         b0final=data
         for i in range(z):
@@ -372,7 +383,7 @@ def fill(position, data, new_val,rad,scal=1,work='2D'):
     return data_new
 
 
-def getVoxels(voxel, data, init_val, voxelList, rad, data_new,new_val,work):
+def getVoxels(voxel, data, init_val, voxelList, rad, data_new,new_val,work='2D'):
     if work=='3D':
         (x, y, z) = voxel
         adjacentVoxelList = set()
@@ -386,7 +397,7 @@ def getVoxels(voxel, data, init_val, voxelList, rad, data_new,new_val,work):
             if isInbound(adja, data,work):
                 if data[adja] >= init_val and data_new[adja] != new_val:
                     voxelList.add(adja)
-    elif work=='2D':
+    else:
         pixel=voxel
         (x, y) = pixel
         adjacentPixelList = set()
@@ -402,11 +413,11 @@ def getVoxels(voxel, data, init_val, voxelList, rad, data_new,new_val,work):
     return voxelList
 
 
-def isInbound(voxel, data,work):
+def isInbound(voxel, data, work='2D'):
     if work=='3D':
         return voxel[0] < data.shape[0] and voxel[0] >= 0 and voxel[1] < data.shape[1] and voxel[1] >= 0 and voxel[2] < \
            data.shape[2] and voxel[2] >= 0
-    elif work=='2D':
+    else:
         return voxel[0] < data.shape[0] and voxel[0] >= 0 and voxel[1] < data.shape[1] and voxel[1] >= 0
 
 
@@ -423,7 +434,7 @@ def binsearch(img,x2,y2,z=0,x1=0,y1=0,work='2D'):
         
         idx = search([Im1,Im2,Im3,Im4],[0,1,2,3])
     
-    elif work=='2D':
+    else:
         if x2<=x1+1 or y2<=y1+1 :
             return (x1,y1)
         cand = [[[x1,(x1+x2)//2],[y1,(y2+y1)//2]],[[(x1+x2)//2,x2],[y1,(y2+y1)//2]],[[x1,(x1+x2)//2],[(y1+y2)//2,y2]],[[(x1+x2)//2,x2],[(y1+y2)//2,y2]]]
@@ -458,7 +469,7 @@ def shape_matrix(radius,shape='ball',height=5,work='2D'):
                         mat[radius+i,radius+j,k]=1
                         mat[radius-i,radius+j,k]=1
                     
-        elif shape=='ball':
+        else:
             mat=np.zeros((2*radius+1,2*radius+1,2*radius+1))
             for i in range(radius):
                 h=int(np.sqrt(radius**2-i**2))
@@ -467,7 +478,7 @@ def shape_matrix(radius,shape='ball',height=5,work='2D'):
                     for k in range(-h1,h1+1):
                         mat[radius+i,radius+j,radius+k]=1
                         mat[radius-i,radius+j,radius+k]=1
-    elif work=='2D':
+    else:
         mat=0
         mat=np.zeros((2*radius+1,2*radius+1))
         for i in range(radius):

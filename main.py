@@ -36,16 +36,11 @@ for name in imports:
             sys.exit()
     
 import easygui as egui
-import dipy as dp
-import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
 import cv2
 from bruker2nifti.converter import Bruker2Nifti
 from optparse import OptionParser
-import nipype
-import nilearn
-import json
 import datetime as dt
 import elikopy
 
@@ -329,6 +324,6 @@ if __name__ == '__main__':
 
     # Microstructural metrics
     study.dti(patient_list_m=patient_list,report=False)
-    #study.noddi(use_wm_mask=False, patient_list_m=patient_list, cpus=4)
+    study.noddi(use_wm_mask=False, patient_list_m=patient_list, cpus=4)
     study.fingerprinting(dic_path, patient_list_m=patient_list, cpus=8, CSD_bvalue=6000,report=False)
     logs.close()
