@@ -12,6 +12,7 @@ import shutil
 import time
 import subprocess
 import sys
+import cv2
 
 def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
@@ -38,7 +39,6 @@ for name in imports:
 import easygui as egui
 import nibabel as nib
 import numpy as np
-import cv2
 from bruker2nifti.converter import Bruker2Nifti
 from optparse import OptionParser
 import datetime as dt
@@ -128,16 +128,16 @@ def convertAndMerge(Input, Output, subject,logs):
                 shell_index.append(mergedDWI.shape[-1])
                 mergedDWI = nib.concat_images([mergedDWI, dwi], axis=3)
         elif(method == "FLASH"):
-            print("FLASH")
+            print("FLASH",dir)
             logs.write('[convertAndMerge] Treating FLASH at'+dir+'   '+str(dt.datetime.now())+'\n')
         elif(method == "RARE"):
-            print("RARE")
+            print("RARE",dir)
             logs.write('[convertAndMerge] Treating RARE at'+dir+'   '+str(dt.datetime.now())+'\n')
         elif (method == "MSME"):
-            print("MSME")
+            print("MSME",dir)
             logs.write('[convertAndMerge] Treating MSME at'+dir+'   '+str(dt.datetime.now())+'\n')
         elif (method == "FieldMap"):
-            print("FieldMap")
+            print("FieldMap",dir)
             logs.write('[convertAndMerge] Treating FieldMap at'+dir+'   '+str(dt.datetime.now())+'\n')
         elif (method == "nmrsuDtiEpi"):
             print("nmrsuDtiEpi", dir)
@@ -258,7 +258,7 @@ if __name__ == '__main__':
     dic_path = "/CECI/proj/pilab/Software/elikopy_static_files/mf_dic/dictionary_fixed_rad_dist_StLuc-GE.mat"
 
     fastMode = True
-    print("Beginning of main")
+
     parser = OptionParser()
     parser.add_option('-n','--name',dest = 'name',
                       help='path of data')
