@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu May 12 15:55:09 2022
+
+@author: nicolasbioul
+"""
+
 import os
 import math
 import time
@@ -30,7 +38,7 @@ denoised = None
 
 def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, Mask_off=True,logs=None):
     #variable to skip prossess
-    #starting_state =None
+    global denoised
 
     log_prefix = "[Myemouse Preproc]"
     #logs.write('[Myemouse Preproc] started. Launching preprocessing on data  '+str(dt.datetime.now())+'\n')
@@ -42,31 +50,31 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     fcorr_dwi = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/' + patient_path + '_dmri_preproc.nii.gz'
     fcorr_bval = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/' + patient_path + "_dmri_preproc.bval"
     fcorr_bvec = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/' + patient_path + "_dmri_preproc.bvec"
+    
+    #logs.write('[Myemouse Preproc] Motion correction sequence launched '+str(dt.datetime.now())+'\n') 
+    #if starting_state is None or starting_state=="motionCorr":
+    data, affine = load_nifti(fdwi)
+    bvals, bvecs = read_bvals_bvecs(fbval, fbvec)
+    gtab = gradient_table(bvals, bvecs, b0_threshold=65)
+    
+    
+    
+    import json
+    with open(os.path.join(folder_path + '/subjects/',"subj_type.json")) as json_file:
+        subj_type = json.load(json_file)
 
-
+    subj_type[patient_path]
+    
     ############################
     ### MPPCA Denoising step ###
     ############################
-    
-    denoisingMPPCA_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/denoisingMPPCA/'
-    #if starting_state is None:
     if Denoising:
         
         print("Start of denoising step", patient_path)
-        
+        denoisingMPPCA_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/denoisingMPPCA/'
+        makedir(denoisingMPPCA_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt",log_prefix)
+
         #logs.write('[Myemouse Preproc] Denoising sequence launched '+str(dt.datetime.now())+'\n')
-        data, affine = load_nifti(fdwi)
-
-        global denoised
-        makedir(denoisingMPPCA_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt",
-                log_prefix)
-
-        import json
-        with open(os.path.join(folder_path + '/subjects/',"subj_type.json")) as json_file:
-            subj_type = json.load(json_file)
-
-        subj_type[patient_path]
-
         shell_index = []
         with open(os.path.join(folder_path, "data_" + str(subj_type[patient_path]),"shell_index.txt"), "r") as f:
             for line in f:
@@ -90,37 +98,29 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
         #logs.write('All threads have been launched at'+str(dt.datetime.now())+'\n')
         for i in range(len(threads)):
             threads[i].join()
-        #logs.write('All threads finished at'+str(dt.datetime.now())+'\n')
+        #logs.write('All threads finished at '+str(dt.datetime.now())+'\n')
 
         save_nifti(denoisingMPPCA_path + '/' + patient_path + '_mppca.nii.gz', denoised.astype(np.float32), affine)
         data = denoised
-    else:
-        data, affine = load_nifti(denoisingMPPCA_path + '/' + patient_path + '_mppca.nii.gz')
-
-        
+ 
     ##############################
     ### Motion correction step ###
     ##############################
     
-    #logs.write('[Myemouse Preproc] Motion correction sequence launched '+str(dt.datetime.now())+'\n') 
-    motionCorr_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/motionCorrection/'
-    #if starting_state is None or starting_state=="motionCorr":
+    
     if Motion_corr:
-        
+    
         print("Motion correction step for subject ", patient_path)
-        
+        motionCorr_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/motionCorrection/'
         makedir(motionCorr_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
 
         #logs.write('Motion correction step for subject '+patient_path+dt.datetime.now()+'\n')
-        bvals, bvecs = read_bvals_bvecs(fbval, fbvec)
-        gtab_corr = gradient_table(bvals, bvecs, b0_threshold=65)
-
         reg_affines_precorrection = []
         static_precorrection = data[..., 0]
         static_grid2world_precorrection = affine
         moving_grid2world_precorrection = affine
         for i in range(data.shape[-1]):
-            if gtab_corr.b0s_mask[i]:
+            if gtab.b0s_mask[i]:
                 print("Motion correction: Premoving b0 number ", i)
                 #logs.write('Motion correction step for subject '+ patient_path+dt.datetime.now()+'\n')
                 moving = data[...,i]
@@ -132,109 +132,73 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
                 data[..., i] = trans_affine.transform(moving)
                 reg_affines_precorrection.append(trans_affine.affine)
 
-        gtab_precorrection = reorient_bvecs(gtab_corr, reg_affines_precorrection)
-        data_b0s = data[..., gtab_corr.b0s_mask]
+        gtab_precorrection = reorient_bvecs(gtab, reg_affines_precorrection)
+        data_b0s = data[..., gtab.b0s_mask]
 
         data_avg_b0 = data_b0s.mean(axis=-1)
-
-        save_nifti(motionCorr_path + patient_path + '_templateB0.nii.gz', data_avg_b0, affine)
+        save_nifti(motionCorr_path + patient_path + '_avgB0.nii.gz', data_avg_b0, affine)
         save_nifti(motionCorr_path + patient_path + '_B0S.nii.gz', data_b0s, affine)
+        bvec = gtab.bvecs
+        zerobvec = np.where((bvec[:, 0] == 0) & (bvec[:, 1] == 0) & (bvec[:, 2] == 0))
+        bvec[zerobvec] = [1, 0, 0]
+        save_nifti(motionCorr_path + patient_path + '_motionCorrected.nii.gz', data, affine)
+        np.savetxt(motionCorr_path + patient_path + '_motionCorrected.bval', bvals)
+        np.savetxt(motionCorr_path + patient_path + '_motionCorrected.bvec', bvec)
 
-        # More detailed registration
-        """reg_affines = []
-    
-        data_corr = np.zeros(data.shape)
-    
-        for i in range(data.shape[-1]):
-            print('Volume index %d' % (i,))
-            if not gtab.b0s_mask[i]:
-    
-                print('Affine registration started')
-                moving = data[..., i]
-                moved, trans_affine_tmp = affine_reg(static, static_grid2world,
-                                                 moving, moving_grid2world)
-                trans_affine = trans_affine_tmp.affine
-                reg_affines.append(trans_affine)
-                print('Affine registration finished')
-            else:
-                moved = data[..., i]
-                trans_affine = affine
-    
-            data_corr[..., i] = moved
-    
-        gtab_corr = reorient_bvecs(gtab_precorrection, reg_affines)
-        """
+        gtab = gtab_precorrection
 
-        gtab_corr = gtab_precorrection
-        data_corr = data
-
-    else:
-        data_corr, affine = load_nifti(motionCorr_path + patient_path + '_motionCorrected.nii.gz')
-        fbval_corr = motionCorr_path + patient_path + '_motionCorrected.bval'
-        fbvec_corr = motionCorr_path + patient_path + '_motionCorrected.bvec'
-        bvals, bvecs = read_bvals_bvecs(fbval_corr, fbvec_corr)
-        gtab_corr = gradient_table(bvals, bvecs, b0_threshold=65)
-        
+    elif os.path.exists(motionCorr_path + patient_path + '_motionCorrected.nii.gz'):
+        data, affine = load_nifti(motionCorr_path + patient_path + '_motionCorrected.nii.gz')
+        fbval = motionCorr_path + patient_path + '_motionCorrected.bval'
+        fbvec = motionCorr_path + patient_path + '_motionCorrected.bvec'
+        bvals, bvecs = read_bvals_bvecs(fbval, fbvec)
+        gtab = gradient_table(bvals, bvecs, b0_threshold=65)
     
-
     #############################
     ### Brain extraction step ###
     #############################
     if Mask_off:
         print('Brain extraction step')
-        
-        # created a brain for disign a mask (sum of all shell)
-        b0final=np.zeros(data_corr.shape[:-1])
-        for i in range(data_corr.shape[-1]):
-            #if gtab_corr.bvals[i]<1600 and gtab_corr.bvals[i]>1000: #gtab_corr.b0s_mask[i]:
-                b0final+=data_corr[:, :, :, i]
-    
-        save_nifti(motionCorr_path + patient_path + '_motionCorrected_SumOfAll.nii.gz',b0final, affine)
-        
-        bvec = gtab_corr.bvecs
-        zerobvec = np.where((bvec[:, 0] == 0) & (bvec[:, 1] == 0) & (bvec[:, 2] == 0))
-        bvec[zerobvec] = [1, 0, 0]
-        save_nifti(motionCorr_path + patient_path + '_motionCorrected.nii.gz', data_corr, affine)
-        np.savetxt(motionCorr_path + patient_path + '_motionCorrected.bval', bvals)
-        np.savetxt(motionCorr_path + patient_path + '_motionCorrected.bvec', bvec)
-        
-        del data_corr
-        
         brainExtraction_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/brainExtraction/'
+        mask_path=folder_path + '/subjects/' + patient_path + 'masks/'
+
+    
         makedir(brainExtraction_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
+        makedir(mask_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt",log_prefix)
         
-        # funcction to find a mask
+        # created a brain for designing a mask (sum of all shells)
+        b0final=np.zeros(data.shape[:-1])
+        for i in range(data.shape[-1]):
+                b0final+=data[:, :, :, i]
+    
+        save_nifti(brainExtraction_path + patient_path + 'Brain_extraction_ref.nii.gz',b0final, affine)
+        
+        # function to find a mask
         final_mask=mask_Wizard(b0final,4,7,work='2D')
         
         # Saving
         out = nib.Nifti1Image(final_mask, affine)
-        out.to_filename(brainExtraction_path + patient_path + '_mask_b0.nii.gz')
+        out.to_filename(mask_path + patient_path + 'brain_mask.nii.gz')
         
-        makedir(folder_path + '/subjects/' + patient_path + '/masks/',
-                folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt",
-                log_prefix)
-    
-        mask, mask_affine = load_nifti(brainExtraction_path + patient_path + '_mask_b0.nii.gz')
-        data, affine = load_nifti(motionCorr_path + patient_path + '_motionCorrected.nii.gz')
-    
-        data[mask==0] = 0
-    
-        # Saving final brainmasked brain
-        save_nifti(fcorr_dwi,
-                   data.astype(np.float32), affine)
-        save_nifti(folder_path + '/subjects/' + patient_path + '/masks/' + patient_path + '_brain_mask.nii.gz',
-                   mask.astype(np.float32), affine)
+        data[final_mask==0] = 0
+        
+        save_nifti(brainExtraction_path + patient_path + 'Extracted_brain.nii.gz',data, affine)
+        
+    elif os.path.exists(brainExtraction_path + patient_path + 'Extracted_brain.nii.gz'):
+        data, affine = load_nifti(brainExtraction_path + patient_path + 'Extracted_brain.nii.gz')
+        
+
         
     ################################
     ### Final preprocessing step ###
     ################################
-
-    shutil.copyfile(motionCorr_path + patient_path + '_motionCorrected.bval',
-                    folder_path + '/subjects/' + patient_path + '/dMRI/preproc/' + patient_path + "_dmri_preproc.bval")
-    shutil.copyfile(motionCorr_path + patient_path + '_motionCorrected.bval',
-                    fcorr_bval)
-    shutil.copyfile(motionCorr_path + patient_path + '_motionCorrected.bvec',
-                    fcorr_bvec)
+    
+    final_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/'
+    save_nifti(final_path+'/'+ patient_path +'_preproc.nii.gz',data,affine)
+    np.savetxt(final_path+'/'+ patient_path +'_preproc.bval', bvals)
+    np.savetxt(final_path+'/'+ patient_path +'_preproc.bvec', bvec)
+    
+    
 
 """
 ==========================================
