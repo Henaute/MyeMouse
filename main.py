@@ -9,11 +9,9 @@ import importlib.util
 import os
 import re
 import shutil
-import time
 import subprocess
-import sys
-import cv2
 
+"""
 def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
     
@@ -37,6 +35,7 @@ for name in imports:
             sys.exit()
     
 import easygui as egui
+"""
 import nibabel as nib
 import numpy as np
 from bruker2nifti.converter import Bruker2Nifti
@@ -266,6 +265,8 @@ if __name__ == '__main__':
                       help='path of data')
     parser.add_option('-r','--replace',dest = 'replace',
                       help='replace data True/False')
+    parser.add_option('-p','--preprocessing',dest = 'preprocessing',
+                      help='preprocessing data True/False')
     
     (options,args) = parser.parse_args()
     
@@ -293,7 +294,14 @@ if __name__ == '__main__':
     else:
         replace = True
         write(logs,'You have chosen to replace the data\n')
-
+         
+    preproc = vars(options)['preprocessing']
+    if preproc in ['False','false','F','f','Flase','flase','Fasle','fasle','Faux','faux','Non','non','no','No','N','n']:
+        preproc = False
+        write(logs,'You have chosen not to preprocess the data\n')
+    else:
+        preproc = True
+        write(logs,'You have chosen to preprocess the data\n')
           
     BaseIN = os.path.join(Base,'raw')
     BaseOUT = os.path.join(Base,'Convert')
@@ -376,7 +384,7 @@ if __name__ == '__main__':
         write(logs,'Conversion complete  '+str(dt.datetime.now()))
     else:
         write(logs,'Replace mode = off! Fast forwarding to preprocessing  '+str(dt.datetime.now()))
-        
+    """   
     if os.path.isdir(BaseOUT):
         try:
             shutil.rmtree(BaseOUT)
@@ -384,27 +392,28 @@ if __name__ == '__main__':
         except FileNotFoundError: 
             write(logs,'WARNING!!   '+BaseOUT+' could not be removed from your computer!! Try deleting it manually')
             
-    
+    """
     # Preprocessing: Motion Correction, Brain extraction,
-    if replace==True:
-        study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
-                                        function_name="preprocessing", slurm=False, slurm_timeout=None, cpus=None,
-                                        slurm_mem=None)
-    else:
-        for dirr in os.listdir(ProcIN+'/subjects'):
-            if os.path.isdir(dirr) and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'dmri_preproc.bval') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'dmri_preproc.bvec') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'dmri_preproc.nii.gz'):
-                continue
-            else:
-                study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
-                                        function_name="preprocessing", slurm=False, slurm_timeout=None, cpus=None,
-                                        slurm_mem=None)
-                
-                
-    # Microstructural metrics
-    dic_path = '/Volumes/LaCie/Thesis/fingerprinting/dictionary_fixed_rad_dist_Bruker_StLuc.mat'
-    
-    study.dti(patient_list_m=patient_list)
-    study.noddi(use_wm_mask=False, patient_list_m=patient_list, cpus=4)
-    study.fingerprinting(dic_path, patient_list_m=patient_list, cpus=8, CSD_bvalue=6000)
-    
-    logs.close()
+    if preproc:
+        if replace:
+            study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
+                                            function_name="preprocessing", slurm=False, slurm_timeout=None, cpus=None,
+                                            slurm_mem=None)
+        else:
+            for dirr in os.listdir(ProcIN+'/subjects'):
+                if os.path.isdir(dirr) and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'dmri_preproc.bval') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'dmri_preproc.bvec') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'dmri_preproc.nii.gz'):
+                    continue
+                else:
+                    study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
+                                            function_name="preprocessing", slurm=False, slurm_timeout=None, cpus=None,
+                                            slurm_mem=None)
+                    
+                    
+        # Microstructural metrics
+        dic_path = '/Volumes/LaCie/Thesis/fingerprinting/dictionary_fixed_rad_dist_Bruker_StLuc.mat'
+        
+        study.dti(patient_list_m=patient_list)
+        study.noddi(use_wm_mask=False, patient_list_m=patient_list, cpus=4)
+        study.fingerprinting(dic_path, patient_list_m=patient_list, cpus=8, CSD_bvalue=6000)
+        
+        logs.close()
