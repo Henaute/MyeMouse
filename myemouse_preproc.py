@@ -171,21 +171,21 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
         for i in range(data.shape[-1]):
                 b0final+=data[:, :, :, i]
     
-        save_nifti(brainExtraction_path + patient_path + 'Brain_extraction_ref.nii.gz',b0final, affine)
+        save_nifti(brainExtraction_path + patient_path + '_Brain_extraction_ref.nii.gz',b0final, affine)
         
         # function to find a mask
         final_mask=mask_Wizard(b0final,4,7,work='2D')
         
         # Saving
         out = nib.Nifti1Image(final_mask, affine)
-        out.to_filename(mask_path + patient_path + 'brain_mask.nii.gz')
+        out.to_filename(mask_path + patient_path + '_brain_mask.nii.gz')
         
         data[final_mask==0] = 0
         
-        save_nifti(brainExtraction_path + patient_path + 'Extracted_brain.nii.gz',data, affine)
+        save_nifti(brainExtraction_path + patient_path + '_Extracted_brain.nii.gz',data, affine)
         
-    elif os.path.exists(brainExtraction_path + patient_path + 'Extracted_brain.nii.gz'):
-        data, affine = load_nifti(brainExtraction_path + patient_path + 'Extracted_brain.nii.gz')
+    elif os.path.exists(brainExtraction_path + patient_path + '_Extracted_brain.nii.gz'):
+        data, affine = load_nifti(brainExtraction_path + patient_path + '_Extracted_brain.nii.gz')
         
 
         
