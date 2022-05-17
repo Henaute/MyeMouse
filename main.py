@@ -240,7 +240,7 @@ def gen_Nifti(BaseIN,BaseOUT,ProcIN,logs):
     :param BaseOUT: "/CECI/proj/pilab/PermeableAccess/souris_MKF3Hp7nU/bruker_elikopy"
     :param ProcIN: "/CECI/proj/pilab/PermeableAccess/souris_MKF3Hp7nU/test_b2e_study"
     """
-    print("[gen_Nifti] Beginning of the function "+str(dt.datetime.now()))
+    print("[gen_Nifti] Beginning of the function "+str(dt.datetime.now())+'\n')
     write(logs,'The Nifti generating function has been launched \n')
     for file in os.listdir(BaseIN):
         if (os.path.isdir(os.path.join(BaseIN, file)) and file != 'cleaning_data'):
