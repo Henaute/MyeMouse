@@ -194,9 +194,9 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     ################################
     
     final_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/'
-    save_nifti(final_path+'/'+ patient_path +'_preproc.nii.gz',data,affine)
-    np.savetxt(final_path+'/'+ patient_path +'_preproc.bval', bvals)
-    np.savetxt(final_path+'/'+ patient_path +'_preproc.bvec', bvec)
+    save_nifti(final_path+'/'+ patient_path +'dmri_preproc.nii.gz',data,affine)
+    np.savetxt(final_path+'/'+ patient_path +'dmri_preproc.bval', bvals)
+    np.savetxt(final_path+'/'+ patient_path +'dmri_preproc.bvec', bvec)
     
     
 

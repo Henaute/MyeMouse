@@ -44,19 +44,28 @@ from optparse import OptionParser
 import datetime as dt
 import elikopy
 
-
+def write(file_path,message):
+    f=open(file_path,'a+')
+    f.write(message)
+    f.close()
+    
 def create_folder(path,logs,replace=True):
     if replace:
         if os.path.exists(path):
             print(path)
-            shutil.rmtree(path)
-            logs.write('You have chosen to replace the existing directory. The old directory has been removed'+'\n')
+            try:
+                shutil.rmtree(path)
+                write(logs,'You have chosen to replace the existing directory. The old directory has been removed'+'\n')
+            except FileNotFoundError:
+                write(logs,'WARNING!!   '+BaseOUT+' could not be removed from your computer!! Try deleting it manually')
+                quit()
+
         os.mkdir(path)
-        logs.write('New directory has been created at '+ path+'\n')
+        write(logs,'New directory has been created at '+ path+'\n')
     else:
-        logs.write('You have chosen not to replace the directory'+'\n')
+        write(logs,'You have chosen not to replace '+path+'\n')
         if not os.path.exists(path):
-            logs.write('Creating the directory '+ path +'\n')
+            write(logs,'Creating the directory '+ path +'\n')
             os.mkdir(path)
 
 from myemouse_preproc import preprocessing
@@ -64,7 +73,7 @@ from myemouse_preproc import preprocessing
 def convertAndMerge(Input, Output, subject,logs):
     # instantiate a converter
     print("Start of convertAndMerge for subject"+ subject+'\n')
-    logs.write('Subject'+subject+' from'+ Input+' has been loaded to convert and merge function'+ str(dt.datetime.now())+'\n')
+    write(logs,'Subject'+subject+' from'+ Input+' has been loaded to convert and merge function  '+ str(dt.datetime.now())+'\n')
     bru = Bruker2Nifti(Input, Output, study_name=subject)
 
     # select the options (attributes) you may want to change - the one shown below are the default one:
@@ -91,10 +100,10 @@ def convertAndMerge(Input, Output, subject,logs):
 
     # call the function convert, to convert the study:
     print("\n","[convertAndMerge]", "Conversion step initiated")
-    logs.write('\n'+'[convertAndMerge]  '+ ' Conversion step initiated'+ str(dt.datetime.now())+'\n')
-    logs.write('Any problems accuring between here and the next log issue from the bruker2nifti library\n')
+    write(logs,'\n'+'[convertAndMerge]  '+ ' Conversion step initiated'+ str(dt.datetime.now())+'\n')
+    write(logs,'[convertAndMerge] Any problems occuring now until the next log issue from the bruker2nifti library\n')
     bru.convert()
-    logs.write('\n'+'[convertAndMerge]  '+' Conversion step complete '+str(dt.datetime.now())+'\n')
+    write(logs,'\n'+'[convertAndMerge]  '+' Conversion step complete '+str(dt.datetime.now())+'\n')
     #Merge all DWI volumes:
     bvecs = None
     bvals = None
@@ -102,7 +111,7 @@ def convertAndMerge(Input, Output, subject,logs):
     shell_index = []
 
     print("\n","[convertAndMerge]", 'Merging step initiated')
-    logs.write('\n'+'[convertAndMerge]  '+' Merging step initiated '+str(dt.datetime.now())+'\n')
+    write(logs,'\n'+'[convertAndMerge]  '+' Merging step initiated '+str(dt.datetime.now())+'\n')
     for dirr in os.listdir(os.path.join(Output,subject)):
         basedir = os.path.join(Output,subject,dirr)
         if not os.path.isfile(os.path.join(basedir,"acquisition_method.txt")):
@@ -112,7 +121,7 @@ def convertAndMerge(Input, Output, subject,logs):
 
         if (method == "DtiEpi"):
             print("DtiEpi", dirr)
-            logs.write('[convertAndMerge]  Treating DtiEpi at '+dirr+'   '+str(dt.datetime.now())+'\n')
+            write(logs,'[convertAndMerge]  Treating DtiEpi at '+dirr+'   '+str(dt.datetime.now())+'\n')
             bvec = np.load(os.path.join(basedir, dirr + "_DwGradVec.npy"))
             bval = np.load(os.path.join(basedir, dirr + "_DwEffBval.npy"))
             dwi = nib.load(os.path.join(basedir, dirr + ".nii.gz"))
@@ -130,19 +139,19 @@ def convertAndMerge(Input, Output, subject,logs):
                 mergedDWI = nib.concat_images([mergedDWI, dwi], axis=3)
         elif(method == "FLASH"):
             print("FLASH",dirr)
-            logs.write('[convertAndMerge] Treating FLASH at'+dirr+'   '+str(dt.datetime.now())+'\n')
+            write(logs,'[convertAndMerge] Treating FLASH at'+dirr+'   '+str(dt.datetime.now())+'\n')
         elif(method == "RARE"):
             print("RARE",dirr)
-            logs.write('[convertAndMerge] Treating RARE at'+dirr+'   '+str(dt.datetime.now())+'\n')
+            write(logs,'[convertAndMerge] Treating RARE at'+dirr+'   '+str(dt.datetime.now())+'\n')
         elif (method == "MSME"):
             print("MSME",dirr)
-            logs.write('[convertAndMerge] Treating MSME at'+dirr+'   '+str(dt.datetime.now())+'\n')
+            write(logs,'[convertAndMerge] Treating MSME at'+dirr+'   '+str(dt.datetime.now())+'\n')
         elif (method == "FieldMap"):
             print("FieldMap",dirr)
-            logs.write('[convertAndMerge] Treating FieldMap at'+dirr+'   '+str(dt.datetime.now())+'\n')
+            write(logs,'[convertAndMerge] Treating FieldMap at'+dirr+'   '+str(dt.datetime.now())+'\n')
         elif (method == "nmrsuDtiEpi"):
             print("nmrsuDtiEpi", dirr)
-            logs.write('[convertAndMerge] Treating nmrsuDtiEpi at'+dirr+'   '+str(dt.datetime.now())+'\n')
+            write(logs,'[convertAndMerge] Treating nmrsuDtiEpi at'+dirr+'   '+str(dt.datetime.now())+'\n')
             create_folder(os.path.join(Output, subject, "reverse_encoding"), replace=False,logs=logs)
             dwi = nib.load(os.path.join(basedir, dirr + ".nii.gz"))
             bval = np.load(os.path.join(basedir,dirr + "_DwEffBval.npy"))
@@ -157,7 +166,7 @@ def convertAndMerge(Input, Output, subject,logs):
             f.close()
         else:
             print("Unknow acquisition method:", method)
-            logs.write('[convertAndMerge]'+dirr+'  is an unknow acquisition method  '+str(dt.datetime.now())+'\n')
+            write(logs,'[convertAndMerge]'+dirr+'  is an unknow acquisition method  '+str(dt.datetime.now())+'\n')
             
 
     np.savetxt(os.path.join(Output, subject, subject + ".bvec"), bvecs, fmt="%.42f")
@@ -173,7 +182,7 @@ def convertAndMerge(Input, Output, subject,logs):
     for element in shell_index:
         f.write(str(element) + "\n")
     f.close()
-    logs.write('[convertAndMerge] ran successfully \n')
+    write(logs,'[convertAndMerge] ran successfully \n')
     return int(bvals.shape[0])
 
 
@@ -218,10 +227,12 @@ def link(Input, Out, nVol, subjectName,logs):
     shutil.copyfile(subjectPath + ".bvec", os.path.join(Out, typeFolder, subjectName + ".bvec"))
     shutil.copyfile(subjectPath + ".bval", os.path.join(Out, typeFolder, subjectName + ".bval"))
 
+
     subjectPath_reverse = os.path.join(Input, "reverse_encoding", subjectName)
     shutil.copyfile(subjectPath_reverse + ".nii.gz", os.path.join(Out,typeFolder, "reverse_encoding", subjectName + ".nii.gz"))
     shutil.copyfile(subjectPath_reverse + ".bvec", os.path.join(Out, typeFolder, "reverse_encoding", subjectName + ".bvec"))
     shutil.copyfile(subjectPath_reverse + ".bval", os.path.join(Out, typeFolder, "reverse_encoding", subjectName + ".bval"))
+    
 
 
 def gen_Nifti(BaseIN,BaseOUT,ProcIN,logs):
@@ -232,16 +243,17 @@ def gen_Nifti(BaseIN,BaseOUT,ProcIN,logs):
     :param fastMode: True
     :return:
     """
-    print("Beginning of the gen_Nifti loop")
-    logs.write('The Nifti generating function has been launched '+str(dt.datetime.now())+'\n')
+    print("[gen_Nifti] Beginning of the function "+str(dt.datetime.now()))
+    write(logs,'The Nifti generating function has been launched \n')
     for file in os.listdir(BaseIN):
         if (os.path.isdir(os.path.join(BaseIN, file)) and file != 'cleaning_data'):
             Input = os.path.join(BaseIN, file)
-            if not (os.path.exists(os.path.join(ProcIN,'subjects',file)) and len(os.listdir(os.path.join(ProcIN,'subjects',file)))!=0):
+            if not (os.path.exists(os.path.join(ProcIN,'subjects',file,'dMRI','raw')) and len(os.listdir(os.path.join(ProcIN,'subjects',file,'dMRI','raw')))>=3):
                 nVol = convertAndMerge(Input, BaseOUT, file,logs)
-                logs.write('Now launching link function  for '+file+'  '+str(dt.datetime.now())+'\n')
+                write(logs,'Now launching link function  for '+file+'  '+str(dt.datetime.now())+'\n')
+                
                 link(os.path.join(BaseOUT, file), ProcIN, nVol, file,logs)
-                logs.write('Link function ended successully  for '+file+'  '+str(dt.datetime.now())+'\n')
+                write(logs,'Link function ended successully  for '+file+'  '+str(dt.datetime.now())+'\n')
                 
 
 # Press the green button in the gutter to run the script.
@@ -269,16 +281,18 @@ if __name__ == '__main__':
             while(not os.path.exists(Base) and not os.path.isdir(Base)):
                 print("Your path neither exists or isn't a directory,  please select a directory with a bruker study. The directory must contain the raw directory \n")
                 Base = egui.diropenbox() 
-    logs = open(Base+'/logs.txt','w+')
-    logs.write('Program launched at'+ str(dt.datetime.now())+'\n')
+    f = open(Base+'/logs.txt','w+')
+    logs=Base+'/logs.txt'
+    f.write('Program launched at'+ str(dt.datetime.now())+'\n')
+    f.close()
 
     replace = vars(options)['replace']
     if replace in ['False','false','F','f','Flase','flase','Fasle','fasle','Faux','faux','Non','non','no','No','N','n']:
         replace = False
-        logs.write('You have chosen not to replace the data\n')
+        write(logs,'You have chosen not to replace the data\n')
     else:
         replace = True
-        logs.write('You have chosen to replace the data\n')
+        write(logs,'You have chosen to replace the data\n')
 
           
     BaseIN = os.path.join(Base,'raw')
@@ -291,7 +305,7 @@ if __name__ == '__main__':
     patient_list = None
 
     gen_Nifti(BaseIN,BaseOUT,ProcIN,logs)
-    logs.write('gen_Nifti has ended '+str(dt.datetime.now()))
+    write(logs,'[gen_Nifti] has ended '+str(dt.datetime.now()))
     
     study = elikopy.core.Elikopy(ProcIN, slurm=False, slurm_email='name.surname@student.uclouvain.be', cuda=False)
 
@@ -300,9 +314,27 @@ if __name__ == '__main__':
     if os.path.exists(BaseOUT) and len(os.listdir(BaseOUT))!=0:
         for subject in os.listdir(BaseOUT):
           sub=os.path.join(BaseOUT,subject)
+          new_subjectName=subject
+          for acquisition in os.listdir(sub):
+              if acquisition+'_visu_pars.txt' in os.listdir(os.path.join(sub,acquisition)):
+                  try:
+                      txt=open(os.path.join(sub,acquisition,acquisition+'_visu_pars.txt'),'r')
+                  except FileNotFoundError:
+                      pass
+                  line=txt.readline()
+                  while line:
+                     if 'VisuStudyId' in line:
+                            new_subjectName=line.split(' ',4)[2]
+                            break
+                     line=txt.readline()
+                  txt.close()
+                  break
+          ntxt=open(os.path.join(ProcIN,'subjects',subject,subject+'.txt'),'w')
+          ntxt.write(new_subjectName)
+          ntxt.close()
           for acq in os.listdir(sub):
               acqpath=os.path.join(sub,acq)
-              if os.path.isdir(acqpath) and acq!='reverse_encoding':
+              if os.path.isdir(acqpath) and acq!='reverse_encoding' and os.path.isfile(os.path.join(acqpath,"acquisition_method.txt")):
                   with open(os.path.join(acqpath,"acquisition_method.txt")) as f:
                       method = f.readlines()[0]
                   
@@ -310,47 +342,64 @@ if __name__ == '__main__':
                       create_folder(os.path.join(ProcIN,'subjects',subject,"FLASH"),logs,False)
                       if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
                           shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject,"FLASH"))
-                          logs.write("FLASH acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
+                          write(logs,"FLASH acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
                   
                   elif(method == "RARE"):
                       create_folder(os.path.join(ProcIN,'subjects',subject,"RARE"),logs,False)
                       if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
                           shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject,"RARE"))
-                          logs.write("RARE acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
+                          write(logs,"RARE acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
     
     
                   elif (method == "MSME"):
                       create_folder(os.path.join(ProcIN,'subjects',subject,"MSME"),logs,False)
                       if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
                           shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject,"MSME"))
-                          logs.write("MSME acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
+                          write(logs,"MSME acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
     
     
                   elif (method == "FieldMap"):
                       create_folder(os.path.join(ProcIN,'subjects',subject,"FieldMap"),logs,False)
                       if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
                           shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject,"FieldMap"))
-                          logs.write("FieldMap acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
+                          write(logs,"FieldMap acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
     
               elif acq=='reverse_encoding':
                   if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
                       shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject))
-                      logs.write("reverse_encoding acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
+                      write(logs,"reverse_encoding acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
+              else:
+                  write(logs,"⚠️⚠️⚠️WARNING!!! "+acqpath+" doesn't seem to contain an aquisition_method.txt \n")
+
+                  
     
-        logs.write('Conversion complete  '+str(dt.datetime.now()))
+        write(logs,'Conversion complete  '+str(dt.datetime.now()))
     else:
-        logs.write('Replace mode = off! Fast forwarding to preprocessing  '+str(dt.datetime.now()))
+        write(logs,'Replace mode = off! Fast forwarding to preprocessing  '+str(dt.datetime.now()))
         
     if os.path.isdir(BaseOUT):
+        try:
             shutil.rmtree(BaseOUT)
-            logs.write(BaseOUT+' was removed from your computer')
+            write(logs,BaseOUT+' was removed from your computer')
+        except FileNotFoundError: 
+            write(logs,'WARNING!!   '+BaseOUT+' could not be removed from your computer!! Try deleting it manually')
             
-    """
-    # Preprocessing: Motion Correction, Brain extraction, (TODO: Topup)
-    study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
-                            function_name="preprocessing", slurm=False, slurm_timeout=None, cpus=None,
-                            slurm_mem=None)
-    """
+    
+    # Preprocessing: Motion Correction, Brain extraction,
+    if replace==True:
+        study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
+                                        function_name="preprocessing", slurm=False, slurm_timeout=None, cpus=None,
+                                        slurm_mem=None)
+    else:
+        for dirr in os.listdir(ProcIN+'/subjects'):
+            if os.path.isdir(dirr) and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'dmri_preproc.bval') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'dmri_preproc.bvec') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'dmri_preproc.nii.gz'):
+                continue
+            else:
+                study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
+                                        function_name="preprocessing", slurm=False, slurm_timeout=None, cpus=None,
+                                        slurm_mem=None)
+                
+                
     # Microstructural metrics
     dic_path = '/Volumes/LaCie/Thesis/fingerprinting/dictionary_fixed_rad_dist_Bruker_StLuc.mat'
     
