@@ -375,7 +375,8 @@ if __name__ == '__main__':
                       shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject))
                       write(logs,"reverse_encoding acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
               else:
-                  write(logs,"⚠️⚠️⚠️WARNING!!! "+acqpath+" doesn't seem to contain an aquisition_method.txt \n")
+                  if os.path.isdir(acqupath):
+                      write(logs,"⚠️⚠️⚠️WARNING!!! "+acqpath+" doesn't seem to contain an aquisition_method.txt \n")
 
                   
     
