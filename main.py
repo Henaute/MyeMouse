@@ -11,7 +11,7 @@ import re
 import shutil
 import subprocess
 
-"""
+
 def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
     
@@ -35,7 +35,7 @@ for name in imports:
             sys.exit()
     
 import easygui as egui
-"""
+
 import nibabel as nib
 import numpy as np
 from bruker2nifti.converter import Bruker2Nifti
@@ -239,8 +239,6 @@ def gen_Nifti(BaseIN,BaseOUT,ProcIN,logs):
     :param BaseIN: "/CECI/proj/pilab/PermeableAccess/souris_MKF3Hp7nU/raw"
     :param BaseOUT: "/CECI/proj/pilab/PermeableAccess/souris_MKF3Hp7nU/bruker_elikopy"
     :param ProcIN: "/CECI/proj/pilab/PermeableAccess/souris_MKF3Hp7nU/test_b2e_study"
-    :param fastMode: True
-    :return:
     """
     print("[gen_Nifti] Beginning of the function "+str(dt.datetime.now()))
     write(logs,'The Nifti generating function has been launched \n')
@@ -281,7 +279,7 @@ if __name__ == '__main__':
         else:
             while(not os.path.exists(Base) and not os.path.isdir(Base)):
                 print("Your path neither exists or isn't a directory,  please select a directory with a bruker study. The directory must contain the raw directory \n")
-                Base = egui.diropenbox() 
+                Base = egui.diropenbox()
     f = open(Base+'/logs.txt','w+')
     logs=Base+'/logs.txt'
     f.write('Program launched at'+ str(dt.datetime.now())+'\n')
@@ -292,7 +290,7 @@ if __name__ == '__main__':
         replace = False
         write(logs,'You have chosen not to replace the data\n')
     else:
-        replace = True
+        replace = False
         write(logs,'You have chosen to replace the data\n')
          
     preproc = vars(options)['preprocessing']
@@ -384,15 +382,15 @@ if __name__ == '__main__':
         write(logs,'Conversion complete  '+str(dt.datetime.now()))
     else:
         write(logs,'Replace mode = off! Fast forwarding to preprocessing  '+str(dt.datetime.now()))
-    """   
+
     if os.path.isdir(BaseOUT):
         try:
             shutil.rmtree(BaseOUT)
             write(logs,BaseOUT+' was removed from your computer')
-        except FileNotFoundError: 
+        except FileNotFoundError:
             write(logs,'WARNING!!   '+BaseOUT+' could not be removed from your computer!! Try deleting it manually')
             
-    """
+
     # Preprocessing: Motion Correction, Brain extraction,
     if preproc:
         if replace:
@@ -401,7 +399,7 @@ if __name__ == '__main__':
                                             slurm_mem=None)
         else:
             for dirr in os.listdir(ProcIN+'/subjects'):
-                if os.path.isdir(dirr) and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'dmri_preproc.bval') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'dmri_preproc.bvec') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'dmri_preproc.nii.gz'):
+                if os.path.isdir(ProcIN+'/subjects/'+dirr) and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'dmri_preproc.bval') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'dmri_preproc.bvec') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'dmri_preproc.nii.gz'):
                     continue
                 else:
                     study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
