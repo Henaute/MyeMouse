@@ -160,7 +160,7 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     if Mask_off:
         print('Brain extraction step')
         brainExtraction_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/brainExtraction/'
-        mask_path=folder_path + '/subjects/' + patient_path + 'masks/'
+        mask_path=folder_path + '/subjects/' + patient_path + '/masks/'
 
     
         makedir(brainExtraction_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
