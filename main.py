@@ -290,7 +290,7 @@ if __name__ == '__main__':
         replace = False
         write(logs,'You have chosen not to replace the data\n')
     else:
-        replace = False
+        replace = True
         write(logs,'You have chosen to replace the data\n')
          
     preproc = vars(options)['preprocessing']
@@ -322,7 +322,7 @@ if __name__ == '__main__':
           sub=os.path.join(BaseOUT,subject)
           new_subjectName=subject
           for acquisition in os.listdir(sub):
-              if acquisition+'_visu_pars.txt' in os.listdir(os.path.join(sub,acquisition)):
+              if os.path.isdir(os.path.join(sub,acquisition)) and acquisition+'_visu_pars.txt' in os.listdir(os.path.join(sub,acquisition)):
                   try:
                       txt=open(os.path.join(sub,acquisition,acquisition+'_visu_pars.txt'),'r')
                   except FileNotFoundError:
@@ -401,7 +401,7 @@ if __name__ == '__main__':
             for dirr in os.listdir(ProcIN+'/subjects'):
                 if os.path.isdir(ProcIN+'/subjects/'+dirr) and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'_dmri_preproc.bval') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'_dmri_preproc.bvec') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'_dmri_preproc.nii.gz'):
                     continue
-                else:
+                elif os.path.isdir(ProcIN+'/subjects/'+dirr):
                     study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
                                             function_name="preprocessing", slurm=False, slurm_timeout=None, cpus=None,
                                             slurm_mem=None)
