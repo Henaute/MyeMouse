@@ -36,12 +36,14 @@ from elikopy.utils import makedir
 
 denoised = None
 
-def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, Mask_off=True,logs=None):
+def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, Mask_off=True):
     #variable to skip prossess
+    logs=folder_path.split('/Merge',1)[0]+'/logs.txt'
     global denoised
 
     log_prefix = "[Myemouse Preproc]"
-    #logs.write('[Myemouse Preproc] started. Launching preprocessing on data  '+str(dt.datetime.now())+'\n')
+    print(logs)
+    write(logs,'✅ [Myemouse Preproc] started. Launching preprocessing on data  '+str(dt.datetime.now())+'\n')
 
     fdwi = folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + patient_path + '_raw_dmri.nii.gz'
     fbval = folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + patient_path + "_raw_dmri.bval"
@@ -51,8 +53,6 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     fcorr_bval = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/' + patient_path + "_dmri_preproc.bval"
     fcorr_bvec = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/' + patient_path + "_dmri_preproc.bvec"
     
-    #logs.write('[Myemouse Preproc] Motion correction sequence launched '+str(dt.datetime.now())+'\n') 
-    #if starting_state is None or starting_state=="motionCorr":
     data, affine = load_nifti(fdwi)
     bvals, bvecs = read_bvals_bvecs(fbval, fbvec)
     gtab = gradient_table(bvals, bvecs, b0_threshold=65)
@@ -74,7 +74,7 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
         denoisingMPPCA_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/denoisingMPPCA/'
         makedir(denoisingMPPCA_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt",log_prefix)
 
-        #logs.write('[Myemouse Preproc] Denoising sequence launched '+str(dt.datetime.now())+'\n')
+        write(logs,'✅ [Myemouse Preproc] Denoising sequence launched '+str(dt.datetime.now())+'\n')
         shell_index = []
         with open(os.path.join(folder_path, "data_" + str(subj_type[patient_path]),"shell_index.txt"), "r") as f:
             for line in f:
@@ -87,7 +87,7 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
         threads = []
         for i in range(len(shell_index)-1):
             print("Start of mppca for shell", i, " (index:", shell_index[i],",", shell_index[i+1],")")
-            #logs.write('Marcenko-Pastur PCA algorithm launched for shell '+ str(i)+ '(index:'+ str(shell_index[i])+","+ str(shell_index[i+1])+')'+dt.datetime.now()+'\n')
+            write(logs,'✅ Marcenko-Pastur PCA algorithm launched for shell '+ str(i)+ '(index:'+ str(shell_index[i])+","+ str(shell_index[i+1])+')'+dt.datetime.now()+'\n')
             a = shell_index[i]
             b = shell_index[i+1]
             chunk = data[:,:,:,a:b].copy()
@@ -95,10 +95,10 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
             threads[-1].start()
 
         print("All threads have been launched")
-        #logs.write('All threads have been launched at'+str(dt.datetime.now())+'\n')
+        write(logs,'✅ All threads have been launched at'+str(dt.datetime.now())+'\n')
         for i in range(len(threads)):
             threads[i].join()
-        #logs.write('All threads finished at '+str(dt.datetime.now())+'\n')
+        write(logs,'✅ All threads finished at '+str(dt.datetime.now())+'\n')
 
         save_nifti(denoisingMPPCA_path + '/' + patient_path + '_mppca.nii.gz', denoised.astype(np.float32), affine)
         data = denoised
@@ -111,10 +111,11 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     if Motion_corr:
     
         print("Motion correction step for subject ", patient_path)
+        write(logs,'✅ [Myemouse Preproc] Motion correction sequence launched '+str(dt.datetime.now())+'\n') 
         motionCorr_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/motionCorrection/'
         makedir(motionCorr_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
 
-        #logs.write('Motion correction step for subject '+patient_path+dt.datetime.now()+'\n')
+        logs.write('Motion correction step for subject '+patient_path+dt.datetime.now()+'\n')
         reg_affines_precorrection = []
         static_precorrection = data[..., 0]
         static_grid2world_precorrection = affine
@@ -122,7 +123,7 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
         for i in range(data.shape[-1]):
             if gtab.b0s_mask[i]:
                 print("Motion correction: Premoving b0 number ", i)
-                #logs.write('Motion correction step for subject '+ patient_path+dt.datetime.now()+'\n')
+                write(logs,'✅ Motion correction step for subject '+ patient_path+dt.datetime.now()+'\n')
                 moving = data[...,i]
                 moved, trans_affine = affine_reg(static_precorrection, static_grid2world_precorrection,
                                                  moving, moving_grid2world_precorrection)
@@ -146,6 +147,7 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
         np.savetxt(motionCorr_path + patient_path + '_motionCorrected.bvec', bvec)
 
         gtab = gtab_precorrection
+        write(logs,'✅ [Myemouse_preproc] Motion correction step ended '+str(dt.datetime.now())+'\n')
 
     elif os.path.exists(motionCorr_path + patient_path + '_motionCorrected.nii.gz'):
         data, affine = load_nifti(motionCorr_path + patient_path + '_motionCorrected.nii.gz')
@@ -153,12 +155,15 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
         fbvec = motionCorr_path + patient_path + '_motionCorrected.bvec'
         bvals, bvecs = read_bvals_bvecs(fbval, fbvec)
         gtab = gradient_table(bvals, bvecs, b0_threshold=65)
+        write(logs,'⏭ [Myemouse_preproc] Fast forwarding to brain extraction'+ str(dt.datetime.now())+'\n')
     
     #############################
     ### Brain extraction step ###
     #############################
     if Mask_off:
         print('Brain extraction step')
+        write(logs,'✅ [Myemouse_preproc] strating brain extraction step'+ str(dt.datetime.now())+'\n')
+
         brainExtraction_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/brainExtraction/'
         mask_path=folder_path + '/subjects/' + patient_path + '/masks/'
 
@@ -183,7 +188,9 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
         data[final_mask==0] = 0
         
         save_nifti(brainExtraction_path + patient_path + '_Extracted_brain.nii.gz',data, affine)
+        write(logs,'✅ [Myemouse_preproc] brain extraction step has ended'+ str(dt.datetime.now())+'\n')
         
+
     elif os.path.exists(brainExtraction_path + patient_path + '_Extracted_brain.nii.gz'):
         data, affine = load_nifti(brainExtraction_path + patient_path + '_Extracted_brain.nii.gz')
         
@@ -197,7 +204,12 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     save_nifti(final_path+'/'+ patient_path +'_dmri_preproc.nii.gz',data,affine)
     np.savetxt(final_path+'/'+ patient_path +'_dmri_preproc.bval', bvals)
     np.savetxt(final_path+'/'+ patient_path +'_dmri_preproc.bvec', bvec)
-    
+    write(logs, '🔍 You may find the denoised data at '+denoisingMPPCA_path + '/' + patient_path + '_mppca.nii.gz \n')
+    write(logs, '🔍 You may find the motion corrected at '+motionCorr_path + patient_path + '_motionCorrected.nii.gz \n')
+    write(logs, '🔍 You may find the brain mask at '+mask_path + patient_path + '_brain_mask.nii.gz\n')
+    write(logs, '🔍 You may find the extracted brain at '+brainExtraction_path + patient_path + '_Extracted_brain.nii.gz\n')
+    write(logs, '🔍 You may find the final preprocessed data at '+final_path+'/'+ patient_path +'_dmri_preproc.nii.gz\n')
+
     
 
 """
@@ -289,9 +301,9 @@ def mask_Wizard(data,r_fill,r_shape,scal=1,geo_shape='ball',work='2D'):
     r_fill : TYPE : Interger
         The rayon of the circle,cylinder,or ball that we use for growing the surface.
     r_shape : TYPE : Interger
-        The rayon of the circle,cylinder,or ball that we use for the opening/closing.
+        The radius of the circle, cylinder, or ball that we use for the opening/closing.
     scal : TYPE : Interger, optional
-        The param λ in the formul y=µ+λ*σ. y was the threshold if we take the voxel or not.
+        The param λ in the formula y=µ+λ*σ. y is the threshold if we take the voxel or not.
         The default is 1.
     geo_shape : TYPE : String, optional
         The shape of the convolution in the opening/closing. ('ball','cylinder')
@@ -454,4 +466,14 @@ def shape_matrix(radius,shape='ball',height=5,work='2D'):
                 mat[radius+i,radius+j]=1
                 mat[radius-i,radius+j]=1                        
     return mat
+
+def write(file_path,message):
+    try:
+        f=open(file_path,'a+')
+        f.write(message)
+        f.write('\n')
+        f.close()
+    except FileNotFoundError:
+        print('log file not found. Safety mode on --> messages will be printed in console \n')
+        print(message +'\n')
     
