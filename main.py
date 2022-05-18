@@ -11,7 +11,7 @@ import re
 import shutil
 import subprocess
 
-
+"""
 def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
     
@@ -35,7 +35,7 @@ for name in imports:
             sys.exit()
     
 import easygui as egui
-
+"""
 import nibabel as nib
 import numpy as np
 from bruker2nifti.converter import Bruker2Nifti
@@ -261,6 +261,9 @@ if __name__ == '__main__':
                       help='replace data True/False')
     parser.add_option('-p','--preprocessing',dest = 'preprocessing',
                       help='preprocessing data True/False')
+    parser.add_option('-f','--fastmode',dest = 'fastmode',
+                      help='fastmode True/False')
+    
     
     (options,args) = parser.parse_args()
     
@@ -296,6 +299,13 @@ if __name__ == '__main__':
     else:
         preproc = True
         write(logs,'🕐🕑🕒 You have chosen to preprocess the data\n')
+    fast = vars(options)['fastmode']
+    if fast in ['False','false','F','f','Flase','flase','Fasle','fasle','Faux','faux','Non','non','no','No','N','n']:
+        fast = False
+        write(logs,'🕐🕑🕒 You have chosen not to fast mode\n')
+    else:
+        fast = True
+        write(logs,'⏭ You have chosen to fast mode\n')
           
     BaseIN = os.path.join(Base,'raw')
     BaseOUT = os.path.join(Base,'Convert')
@@ -317,64 +327,65 @@ if __name__ == '__main__':
         for subject in os.listdir(BaseOUT):
           sub=os.path.join(BaseOUT,subject)
           new_subjectName=subject
-          for acquisition in os.listdir(sub):
-              if os.path.isdir(os.path.join(sub,acquisition)) and acquisition+'_visu_pars.txt' in os.listdir(os.path.join(sub,acquisition)):
-                  try:
-                      txt=open(os.path.join(sub,acquisition,acquisition+'_visu_pars.txt'),'r')
-                  except FileNotFoundError:
-                      pass
-                  line=txt.readline()
-                  while line:
-                     if 'VisuStudyId' in line:
-                            new_subjectName=line.split(' ',4)[2]
-                            break
-                     line=txt.readline()
-                  txt.close()
-                  break
-          ntxt=open(os.path.join(ProcIN,'subjects',subject,subject+'.txt'),'w')
-          ntxt.write(new_subjectName)
-          ntxt.close()
-          for acq in os.listdir(sub):
-              acqpath=os.path.join(sub,acq)
-              if os.path.isdir(acqpath) and acq!='reverse_encoding' and os.path.isfile(os.path.join(acqpath,"acquisition_method.txt")):
-                  with open(os.path.join(acqpath,"acquisition_method.txt")) as f:
-                      method = f.readlines()[0]
-                  
-                  if(method == "FLASH"):
-                      create_folder(os.path.join(ProcIN,'subjects',subject,"FLASH"),logs,False)
+          if os.path.isdir(sub):
+              for acq in os.listdir(sub):
+                  if os.path.isdir(os.path.join(sub,acq)) and acq+'_visu_pars.txt' in os.listdir(os.path.join(sub,acq)):
+                        try:
+                            txt=open(os.path.join(sub,acq,acq+'_visu_pars.txt'),'r')
+                        except FileNotFoundError:
+                            pass
+                        line=txt.readline()
+                        while line:
+                           if 'VisuStudyId' in line:
+                                  new_subjectName=line.split(' ',4)[2]
+                                  break
+                           line=txt.readline()
+                        txt.close()
+                        break
+                  ntxt=open(os.path.join(ProcIN,'subjects',subject,subject+'.txt'),'w')
+                  ntxt.write(new_subjectName)
+                  ntxt.close()
+ 
+                  acqpath=os.path.join(sub,acq)
+                  if os.path.isdir(acqpath) and acq!='reverse_encoding' and os.path.isfile(os.path.join(acqpath,"acquisition_method.txt")):
+                      with open(os.path.join(acqpath,"acquisition_method.txt")) as f:
+                          method = f.readlines()[0]
+                      
+                      if(method == "FLASH"):
+                          create_folder(os.path.join(ProcIN,'subjects',subject,"FLASH"),logs,False)
+                          if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
+                              shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject,"FLASH"))
+                              write(logs,"✅ FLASH acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
+                      
+                      elif(method == "RARE"):
+                          create_folder(os.path.join(ProcIN,'subjects',subject,"RARE"),logs,False)
+                          if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
+                              shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject,"RARE"))
+                              write(logs,"✅ RARE acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
+        
+        
+                      elif (method == "MSME"):
+                          create_folder(os.path.join(ProcIN,'subjects',subject,"MSME"),logs,False)
+                          if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
+                              shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject,"MSME"))
+                              write(logs,"✅ MSME acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
+        
+        
+                      elif (method == "FieldMap"):
+                          create_folder(os.path.join(ProcIN,'subjects',subject,"FieldMap"),logs,False)
+                          if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
+                              shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject,"FieldMap"))
+                              write(logs,"✅ FieldMap acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
+        
+                  elif acq=='reverse_encoding':
                       if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
-                          shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject,"FLASH"))
-                          write(logs,"✅ FLASH acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
-                  
-                  elif(method == "RARE"):
-                      create_folder(os.path.join(ProcIN,'subjects',subject,"RARE"),logs,False)
-                      if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
-                          shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject,"RARE"))
-                          write(logs,"✅ RARE acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
+                          shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject))
+                          write(logs,"✅ reverse_encoding acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
+                  else:
+                      if os.path.isdir(acqpath):
+                          write(logs,"⚠️⚠️⚠️WARNING!!! "+acqpath+" doesn't seem to contain an aquisition_method.txt \n")
     
-    
-                  elif (method == "MSME"):
-                      create_folder(os.path.join(ProcIN,'subjects',subject,"MSME"),logs,False)
-                      if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
-                          shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject,"MSME"))
-                          write(logs,"✅ MSME acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
-    
-    
-                  elif (method == "FieldMap"):
-                      create_folder(os.path.join(ProcIN,'subjects',subject,"FieldMap"),logs,False)
-                      if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
-                          shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject,"FieldMap"))
-                          write(logs,"✅ FieldMap acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
-    
-              elif acq=='reverse_encoding':
-                  if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
-                      shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject))
-                      write(logs,"✅ reverse_encoding acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
-              else:
-                  if os.path.isdir(acqpath):
-                      write(logs,"⚠️⚠️⚠️WARNING!!! "+acqpath+" doesn't seem to contain an aquisition_method.txt \n")
-
-                  
+                      
     
         write(logs,'✅ Conversion complete  '+str(dt.datetime.now()))
     else:
@@ -390,14 +401,7 @@ if __name__ == '__main__':
 
     # Preprocessing: Motion Correction, Brain extraction,
     if preproc:
-        if replace:
-            write(logs,'✅ [Myemouse_preproc] has been launched '+str(dt.datetime.now())+'\n')
-            study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
-                                            function_name="preprocessing", slurm=False, slurm_timeout=None, cpus=None,
-                                            slurm_mem=None)
-            write(logs,'✅ [Myemouse_preproc] has ended successfuly '+str(dt.datetime.now())+'\n')
-
-        else:
+        if fast:
             for dirr in os.listdir(ProcIN+'/subjects'):
                 if os.path.isdir(ProcIN+'/subjects/'+dirr) and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'_dmri_preproc.bval') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'_dmri_preproc.bvec') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'_dmri_preproc.nii.gz'):
                     continue
@@ -408,9 +412,22 @@ if __name__ == '__main__':
                                             function_name="preprocessing", slurm=False, slurm_timeout=None, cpus=None,
                                             slurm_mem=None)
                     write(logs,'✅ [Myemouse_preproc] has ended successfuly '+str(dt.datetime.now())+'\n')
-
-                    
-                    
+        else:
+            for dirr in os.listdir(ProcIN+'/subjects'):
+                if os.path.isdir(ProcIN+'/subjects/'+dirr) and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc'):
+                   try:
+                       shutil.rmtree(ProcIN+'/subjects/'+dirr+'/dMRI/preproc')
+                       write(logs,ProcIN+'/subjects/'+dirr+'/dMRI/preproc'+' was removed from your computer 🗑\n')
+                   except FileNotFoundError:
+                       write(logs,'⚠️⚠️⚠️ WARNING!!   '+ProcIN+'/subjects/'+dirr+'/dMRI/preproc'+' could not be removed from your computer!! Try deleting it manually \n')
+                       
+                                                        
+            write(logs,'✅ [Myemouse_preproc] has been launched '+str(dt.datetime.now())+'\n')
+            study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
+                                            function_name="preprocessing", slurm=False, slurm_timeout=None, cpus=None,
+                                            slurm_mem=None)
+            write(logs,'✅ [Myemouse_preproc] has ended successfuly '+str(dt.datetime.now())+'\n')
+           
         # Microstructural metrics
         dic_path = '/Volumes/LaCie/Thesis/fingerprinting/dictionary_fixed_rad_dist_Bruker_StLuc.mat'
         write(logs,'✅ Dti started on patient list '+str(dt.datetime.now()))
