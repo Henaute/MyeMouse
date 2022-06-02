@@ -11,7 +11,7 @@ import re
 import shutil
 import subprocess
 
-"""
+
 def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
     
@@ -35,7 +35,7 @@ for name in imports:
             sys.exit()
     
 import easygui as egui
-"""
+
 import nibabel as nib
 import numpy as np
 from bruker2nifti.converter import Bruker2Nifti
@@ -43,19 +43,22 @@ from optparse import OptionParser
 import datetime as dt
 import elikopy
 from myemouse_preproc import write
+from myemouse_preproc import affine_reg
+from dipy.io.image import load_nifti, save_nifti
+from dipy.viz import regtools
     
-def create_folder(path,logs,replace=True):
+def create_folder(path,logs,mode=None,replace=True):
     if replace:
         if os.path.exists(path):
-            print(path)
             try:
                 shutil.rmtree(path)
                 write(logs,'♻️ You have chosen to replace the existing directory. The old directory has been removed'+'\n')
             except FileNotFoundError:
                 write(logs,'⚠️⚠️⚠️ WARNING!!   '+BaseOUT+' could not be removed from your computer!! Try deleting it manually')
-                quit()
-
+                sys.exit()
         os.mkdir(path)
+        if mode!=0:
+            os.chmod(path,mode)
         write(logs,'✅ New directory has been created at '+ path+'\n')
     else:
         write(logs,'⏭ You have chosen not to replace '+path+'\n')
@@ -147,7 +150,7 @@ def convertAndMerge(Input, Output, subject,logs):
         elif (method == "nmrsuDtiEpi"):
             print("nmrsuDtiEpi", dirr)
             write(logs,'✅ [convertAndMerge] Treating nmrsuDtiEpi at'+dirr+'   '+str(dt.datetime.now())+'\n')
-            create_folder(os.path.join(Output, subject, "reverse_encoding"), replace=False,logs=logs)
+            create_folder(os.path.join(Output, subject, "reverse_encoding"),logs,mode=0o777, replace=False)
             dwi = nib.load(os.path.join(basedir, dirr + ".nii.gz"))
             bval = np.load(os.path.join(basedir,dirr + "_DwEffBval.npy"))
             bvec = np.load(os.path.join(basedir, dirr + "_DwGradVec.npy"))
@@ -202,8 +205,8 @@ def link(Input, Out, nVol, subjectName,logs):
             typeFolder = "data_" + str(dataFolderIndex[-1]+1)
         else:
             typeFolder = "data_1"
-        create_folder(os.path.join(Out, typeFolder),logs=logs)
-        create_folder(os.path.join(Out, typeFolder, "reverse_encoding"),logs=logs)
+        create_folder(os.path.join(Out, typeFolder),logs,mode=0o777)
+        create_folder(os.path.join(Out, typeFolder, "reverse_encoding"),logs,mode=0o777)
         index = open(os.path.join(Out, typeFolder, "index.txt"), "w")
         for i in range(nVol):
             index.write('1 ')
@@ -289,7 +292,7 @@ if __name__ == '__main__':
         replace = False
         write(logs,'⏭ You have chosen not to replace the data\n')
     else:
-        replace = True
+        replace = False
         write(logs,'♻️ You have chosen to replace the data\n')
          
     preproc = vars(options)['preprocessing']
@@ -302,16 +305,16 @@ if __name__ == '__main__':
     fast = vars(options)['fastmode']
     if fast in ['False','false','F','f','Flase','flase','Fasle','fasle','Faux','faux','Non','non','no','No','N','n']:
         fast = False
-        write(logs,'🕐🕑🕒 You have chosen not to fast mode\n')
+        write(logs,'🕐🕑🕒 You have chosen not to fast forward\n')
     else:
         fast = True
-        write(logs,'⏭ You have chosen to fast mode\n')
+        write(logs,'⏭ You have chosen to fast forward \n')
           
     BaseIN = os.path.join(Base,'raw')
     BaseOUT = os.path.join(Base,'Convert')
-    create_folder(BaseOUT,logs,replace)
+    create_folder(BaseOUT,logs,mode=0o777, replace=replace)
     ProcIN = os.path.join(Base,'Merge')
-    create_folder(ProcIN,logs,replace)
+    create_folder(ProcIN,logs,mode=0o777, replace=replace)
     
 
     patient_list = None
@@ -321,58 +324,58 @@ if __name__ == '__main__':
     
     study = elikopy.core.Elikopy(ProcIN, slurm=False, slurm_email='name.surname@student.uclouvain.be', cuda=False)
 
-    # Generate elikopy architecture
+   # Generate elikopy architecture
     study.patient_list()
     if os.path.exists(BaseOUT) and len(os.listdir(BaseOUT))!=0:
         for subject in os.listdir(BaseOUT):
           sub=os.path.join(BaseOUT,subject)
           new_subjectName=subject
           if os.path.isdir(sub):
+              banner='.DS_Store'
               for acq in os.listdir(sub):
-                  if os.path.isdir(os.path.join(sub,acq)) and acq+'_visu_pars.txt' in os.listdir(os.path.join(sub,acq)):
-                        try:
-                            txt=open(os.path.join(sub,acq,acq+'_visu_pars.txt'),'r')
-                        except FileNotFoundError:
-                            pass
-                        line=txt.readline()
-                        while line:
-                           if 'VisuStudyId' in line:
+                  acqpath=os.path.join(sub,acq)
+                  if banner!=sub and os.path.isdir(acqpath) and acq+'_visu_pars.txt' in os.listdir(acqpath):
+                      try:
+                          txt=open(os.path.join(sub,acq,acq+'_visu_pars.txt'),'r')
+                          line=txt.readline()
+                          while line:
+                              if 'VisuStudyId' in line:
                                   new_subjectName=line.split(' ',4)[2]
                                   break
-                           line=txt.readline()
-                        txt.close()
-                        break
-                  ntxt=open(os.path.join(ProcIN,'subjects',subject,subject+'.txt'),'w')
-                  ntxt.write(new_subjectName)
-                  ntxt.close()
- 
-                  acqpath=os.path.join(sub,acq)
+                              line=txt.readline()
+                          txt.close()
+                          banner=sub
+                      except FileNotFoundError:
+                          pass
+                      ntxt=open(os.path.join(ProcIN,'subjects',subject,subject+'.txt'),'w')
+                      ntxt.write(new_subjectName)
+                      ntxt.close
                   if os.path.isdir(acqpath) and acq!='reverse_encoding' and os.path.isfile(os.path.join(acqpath,"acquisition_method.txt")):
                       with open(os.path.join(acqpath,"acquisition_method.txt")) as f:
                           method = f.readlines()[0]
                       
                       if(method == "FLASH"):
-                          create_folder(os.path.join(ProcIN,'subjects',subject,"FLASH"),logs,False)
+                          create_folder(os.path.join(ProcIN,'subjects',subject,"FLASH"),logs,0o777,False)
                           if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
                               shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject,"FLASH"))
                               write(logs,"✅ FLASH acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
                       
                       elif(method == "RARE"):
-                          create_folder(os.path.join(ProcIN,'subjects',subject,"RARE"),logs,False)
+                          create_folder(os.path.join(ProcIN,'subjects',subject,"RARE"),logs,0o777,False)
                           if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
                               shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject,"RARE"))
                               write(logs,"✅ RARE acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
         
         
                       elif (method == "MSME"):
-                          create_folder(os.path.join(ProcIN,'subjects',subject,"MSME"),logs,False)
+                          create_folder(os.path.join(ProcIN,'subjects',subject,"MSME"),logs,0o777,False)
                           if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
                               shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject,"MSME"))
                               write(logs,"✅ MSME acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
         
         
                       elif (method == "FieldMap"):
-                          create_folder(os.path.join(ProcIN,'subjects',subject,"FieldMap"),logs,False)
+                          create_folder(os.path.join(ProcIN,'subjects',subject,"FieldMap"),logs,0o777,False)
                           if acq not in os.listdir(os.path.join(ProcIN,'subjects',subject)):
                               shutil.move(acqpath,os.path.join(ProcIN,'subjects',subject,"FieldMap"))
                               write(logs,"✅ FieldMap acquisition added to  "+ProcIN+'/subjects'+subject+'\n')
@@ -416,10 +419,10 @@ if __name__ == '__main__':
             for dirr in os.listdir(ProcIN+'/subjects'):
                 if os.path.isdir(ProcIN+'/subjects/'+dirr) and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc'):
                    try:
-                       shutil.rmtree(ProcIN+'/subjects/'+dirr+'/dMRI/preproc')
+                       create_folder(ProcIN+'/subjects/'+dirr+'/dMRI/preproc',logs,0o777,True)
                        write(logs,ProcIN+'/subjects/'+dirr+'/dMRI/preproc'+' was removed from your computer 🗑\n')
-                   except FileNotFoundError:
-                       write(logs,'⚠️⚠️⚠️ WARNING!!   '+ProcIN+'/subjects/'+dirr+'/dMRI/preproc'+' could not be removed from your computer!! Try deleting it manually \n')
+                   except:
+                       write(logs,'⚠️⚠️⚠️ WARNING!!   '+ProcIN+'/subjects/'+dirr+'/dMRI/preproc'+' could not be removed from your computer!! Try deleting it manually or change permissions \n')
                        
                                                         
             write(logs,'✅ [Myemouse_preproc] has been launched '+str(dt.datetime.now())+'\n')
@@ -427,15 +430,40 @@ if __name__ == '__main__':
                                             function_name="preprocessing", slurm=False, slurm_timeout=None, cpus=None,
                                             slurm_mem=None)
             write(logs,'✅ [Myemouse_preproc] has ended successfuly '+str(dt.datetime.now())+'\n')
-           
-        # Microstructural metrics
-        dic_path = '/Volumes/LaCie/Thesis/fingerprinting/dictionary_fixed_rad_dist_Bruker_StLuc.mat'
-        write(logs,'✅ Dti started on patient list '+str(dt.datetime.now()))
-        study.dti(patient_list_m=patient_list)
-        write(logs,'✅ Dti ended on patient list '+str(dt.datetime.now()))
-        write(logs,'✅ Noddi started on patient list '+str(dt.datetime.now()))
-        study.noddi(use_wm_mask=False, patient_list_m=patient_list, cpus=4)
-        write(logs,'✅ Noddi ended on patient list '+str(dt.datetime.now()))
-        write(logs,'✅ Fingerprinting started on patient list '+str(dt.datetime.now()))
-        study.fingerprinting(dic_path, patient_list_m=patient_list, cpus=8, CSD_bvalue=6000)
-        write(logs, '✅ Fingerprinting ended on patient list '+str(dt.datetime.now()))
+          
+    # Microstructural metrics
+    dic_path = '/Volumes/LaCie/Thesis/fingerprinting/dictionary_fixed_rad_dist_Bruker_StLuc.mat'
+    write(logs,'✅ Dti started on patient list '+str(dt.datetime.now()))
+    study.dti(patient_list_m=patient_list)
+    write(logs,'✅ Dti ended on patient list '+str(dt.datetime.now()))
+    write(logs,'✅ Noddi started on patient list '+str(dt.datetime.now()))
+    #study.noddi(use_wm_mask=False, patient_list_m=patient_list, cpus=4)
+    write(logs,'✅ Noddi ended on patient list '+str(dt.datetime.now()))
+    write(logs,'✅ Fingerprinting started on patient list '+str(dt.datetime.now()))
+    #study.fingerprinting(dic_path, patient_list_m=patient_list, cpus=1, CSD_bvalue=6000)
+    write(logs, '✅ Fingerprinting ended on patient list '+str(dt.datetime.now()))
+    
+    
+    Atlas_ref=''
+    Mouse_ref='/Users/nicolasbioul/Desktop/Thesis/Groupe_1/Merge/subjects/20200113_133132_Cuprizone_experiment_2019_1_3'
+    
+    moving,moving_affine=load_nifti(Mouse_ref+'/dMRI/preproc/20200113_133132_Cuprizone_experiment_2019_1_3_dmri_preproc.nii.gz')
+    moving=moving[...,243]
+    base = os.path.join(ProcIN,'subjects')
+    for subject in os.listdir(base):
+        Subject=os.path.join(base,subject)
+        if os.path.isdir(Subject) and Subject!=Mouse_ref:
+            static,static_affine = load_nifti(Subject+'/dMRI/preproc/'+subject+'_dmri_preproc.nii.gz')
+            static=static[...,243]
+            moved, trans_affine = affine_reg(static, static_affine, moving, moving_affine)
+            Output=os.path.join(Subject+'/masks/Atlas')
+            create_folder(Output,logs,0o777,False)
+            for item in os.listdir(Atlas_ref):
+                if '.nii.gz' in item:
+                    atlas,atlas_affine=load_nifti(Atlas_ref+'/'+item)
+                    done=trans_affine.transform(atlas)
+                    save_nifti(Output+'/'+item,done,atlas_affine)
+
+
+
+            

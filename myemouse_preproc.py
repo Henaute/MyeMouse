@@ -42,7 +42,6 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     global denoised
 
     log_prefix = "[Myemouse Preproc]"
-    print(logs)
     write(logs,'✅ [Myemouse Preproc] started. Launching preprocessing on data  '+str(dt.datetime.now())+'\n')
 
     fdwi = folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + patient_path + '_raw_dmri.nii.gz'
@@ -58,6 +57,13 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     gtab = gradient_table(bvals, bvecs, b0_threshold=65)
     
     
+    denoisingMPPCA_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/denoisingMPPCA/'
+    motionCorr_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/motionCorrection/'
+    brainExtraction_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/brainExtraction/'
+    mask_path=folder_path + '/subjects/' + patient_path + '/masks/'
+
+
+    
     
     import json
     with open(os.path.join(folder_path + '/subjects/',"subj_type.json")) as json_file:
@@ -71,7 +77,6 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     if Denoising:
         
         print("Start of denoising step", patient_path)
-        denoisingMPPCA_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/denoisingMPPCA/'
         makedir(denoisingMPPCA_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt",log_prefix)
 
         write(logs,'✅ [Myemouse Preproc] Denoising sequence launched '+str(dt.datetime.now())+'\n')
@@ -87,7 +92,7 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
         threads = []
         for i in range(len(shell_index)-1):
             print("Start of mppca for shell", i, " (index:", shell_index[i],",", shell_index[i+1],")")
-            write(logs,'✅ Marcenko-Pastur PCA algorithm launched for shell '+ str(i)+ '(index:'+ str(shell_index[i])+","+ str(shell_index[i+1])+')'+dt.datetime.now()+'\n')
+            write(logs,'✅ Marcenko-Pastur PCA algorithm launched for shell '+ str(i)+ ' (index:'+ str(shell_index[i])+","+ str(shell_index[i+1])+')'+str(dt.datetime.now())+'\n')
             a = shell_index[i]
             b = shell_index[i+1]
             chunk = data[:,:,:,a:b].copy()
@@ -95,7 +100,7 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
             threads[-1].start()
 
         print("All threads have been launched")
-        write(logs,'✅ All threads have been launched at'+str(dt.datetime.now())+'\n')
+        write(logs,'✅ All threads have been launched at '+str(dt.datetime.now())+'\n')
         for i in range(len(threads)):
             threads[i].join()
         write(logs,'✅ All threads finished at '+str(dt.datetime.now())+'\n')
@@ -111,11 +116,9 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     if Motion_corr:
     
         print("Motion correction step for subject ", patient_path)
-        write(logs,'✅ [Myemouse Preproc] Motion correction sequence launched '+str(dt.datetime.now())+'\n') 
-        motionCorr_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/motionCorrection/'
         makedir(motionCorr_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
 
-        logs.write('Motion correction step for subject '+patient_path+dt.datetime.now()+'\n')
+        write(logs,'✅ [Myemouse Preproc] Motion correction step for subject '+patient_path+' '+str(dt.datetime.now())+'\n')
         reg_affines_precorrection = []
         static_precorrection = data[..., 0]
         static_grid2world_precorrection = affine
@@ -123,7 +126,7 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
         for i in range(data.shape[-1]):
             if gtab.b0s_mask[i]:
                 print("Motion correction: Premoving b0 number ", i)
-                write(logs,'✅ Motion correction step for subject '+ patient_path+dt.datetime.now()+'\n')
+                write(logs,'✅ Motion correction step for subject '+ patient_path+str(dt.datetime.now())+'\n')
                 moving = data[...,i]
                 moved, trans_affine = affine_reg(static_precorrection, static_grid2world_precorrection,
                                                  moving, moving_grid2world_precorrection)
@@ -147,7 +150,7 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
         np.savetxt(motionCorr_path + patient_path + '_motionCorrected.bvec', bvec)
 
         gtab = gtab_precorrection
-        write(logs,'✅ [Myemouse_preproc] Motion correction step ended '+str(dt.datetime.now())+'\n')
+        write(logs,'✅ [Myemouse_preproc] Motion correction step ended for subject '+patient_path+'  '+str(dt.datetime.now())+'\n')
 
     elif os.path.exists(motionCorr_path + patient_path + '_motionCorrected.nii.gz'):
         data, affine = load_nifti(motionCorr_path + patient_path + '_motionCorrected.nii.gz')
@@ -163,9 +166,6 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     if Mask_off:
         print('Brain extraction step')
         write(logs,'✅ [Myemouse_preproc] strating brain extraction step'+ str(dt.datetime.now())+'\n')
-
-        brainExtraction_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/brainExtraction/'
-        mask_path=folder_path + '/subjects/' + patient_path + '/masks/'
 
     
         makedir(brainExtraction_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
@@ -203,7 +203,7 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     final_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/'
     save_nifti(final_path+'/'+ patient_path +'_dmri_preproc.nii.gz',data,affine)
     np.savetxt(final_path+'/'+ patient_path +'_dmri_preproc.bval', bvals)
-    np.savetxt(final_path+'/'+ patient_path +'_dmri_preproc.bvec', bvec)
+    np.savetxt(final_path+'/'+ patient_path +'_dmri_preproc.bvec', bvecs)
     write(logs, '🔍 You may find the denoised data at '+denoisingMPPCA_path + '/' + patient_path + '_mppca.nii.gz \n')
     write(logs, '🔍 You may find the motion corrected at '+motionCorr_path + patient_path + '_motionCorrected.nii.gz \n')
     write(logs, '🔍 You may find the brain mask at '+mask_path + patient_path + '_brain_mask.nii.gz\n')
@@ -291,7 +291,7 @@ Brain extraction of DWI data
 @author: HENAUT Eliott BIOUL Nicolas
 =======================================================
 """
-def mask_Wizard(data,r_fill,r_shape,scal=1,geo_shape='ball',work='2D'):
+def mask_Wizard(data,r_fill,r_shape,scal=1,geo_shape='ball',height=5,work='2D'):
     """
 
     Parameters
@@ -308,6 +308,9 @@ def mask_Wizard(data,r_fill,r_shape,scal=1,geo_shape='ball',work='2D'):
     geo_shape : TYPE : String, optional
         The shape of the convolution in the opening/closing. ('ball','cylinder')
         The default is 'ball'.
+    height : TYPE : int, optional
+        The height of the cylinder of the convolution in the opening/closing. ('ball','cylinder')
+        The default is 'ball'.
     work : TYPE : String, optional
         The dimension. ('2D','3D')
         The default is '2D'.
@@ -323,7 +326,7 @@ def mask_Wizard(data,r_fill,r_shape,scal=1,geo_shape='ball',work='2D'):
         (x,y,z)=data.shape
         seed = binsearch(data,x,y,z)
         brainish = fill(seed, data, 1,r_fill,scal)
-        geo_shape=shape_matrix(r_shape,geo_shape)
+        geo_shape=shape_matrix(r_shape,geo_shape,height,work)
         closing=binary_erosion(binary_dilation(brainish,selem=geo_shape))
         opening=binary_dilation(binary_erosion(closing,selem=geo_shape))
         mask=np.zeros(opening.shape)
@@ -332,18 +335,23 @@ def mask_Wizard(data,r_fill,r_shape,scal=1,geo_shape='ball',work='2D'):
         (x,y,z)=data.shape
         b0final=data
         for i in range(z):
+            seed=((b0final.shape[0])//2,(b0final.shape[1])//2,i)
             if np.std(b0final[:,:,i]/np.mean(b0final[:,:,i]))>0.5:
                 seed = binsearch(b0final[:,:,i],x,y,work='2D')
-                brainish=fill(seed,b0final[:,:,i],1,r_fill)
+                brainish=fill(seed,b0final[:,:,i],scal,r_fill)
                 mat=shape_matrix(r_shape)
                 closing = binary_erosion(binary_dilation(brainish,selem=mat),selem=mat)
                 opening = binary_dilation(binary_erosion(closing,selem=mat),selem=mat)
+                
+                #Correction element
                 final= binary_dilation(opening,selem=shape_matrix(2,work='2D'))
+                #
                 inter=np.zeros(final.shape)
                 inter[final]=1
                 b0final[:,:,i]=inter
             else:
                 b0final[:,:,i]=np.zeros(b0final[:,:,i].shape)
+                b0final[seed]=1
         mask=b0final
         
     return mask
@@ -444,7 +452,7 @@ def shape_matrix(radius,shape='ball',height=5,work='2D'):
             for i in range(radius):
                 h=int(np.sqrt(radius**2-i**2))
                 for j in range(-h,h+1):
-                    for k in range(3):
+                    for k in range(height):
                         mat[radius+i,radius+j,k]=1
                         mat[radius-i,radius+j,k]=1
                     
