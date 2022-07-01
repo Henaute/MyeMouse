@@ -437,10 +437,10 @@ if __name__ == '__main__':
     study.dti(patient_list_m=patient_list)
     write(logs,'✅ Dti ended on patient list '+str(dt.datetime.now()))
     write(logs,'✅ Noddi started on patient list '+str(dt.datetime.now()))
-    #study.noddi(use_wm_mask=False, patient_list_m=patient_list, cpus=4)
+    study.noddi(use_wm_mask=False, patient_list_m=patient_list, cpus=4)
     write(logs,'✅ Noddi ended on patient list '+str(dt.datetime.now()))
     write(logs,'✅ Fingerprinting started on patient list '+str(dt.datetime.now()))
-    #study.fingerprinting(dic_path, patient_list_m=patient_list, cpus=1, CSD_bvalue=6000)
+    study.fingerprinting(dic_path, patient_list_m=patient_list, cpus=1, CSD_bvalue=6000)
     write(logs, '✅ Fingerprinting ended on patient list '+str(dt.datetime.now()))
     
     

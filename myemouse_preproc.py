@@ -27,7 +27,12 @@ from dipy.align.imaffine import (transform_centers_of_mass,
                                  AffineRegistration)
 from dipy.align.transforms import (TranslationTransform3D,
                                    RigidTransform3D,
-                                   AffineTransform3D)
+                                   AffineTransform3D,
+                                   TranslationTransform2D,
+                                   RigidTransform2D,
+                                   AffineTransform2D,
+                                   RotationTransform2D,
+                                   RotationTransform3D)
 
 
 from skimage.morphology import binary_dilation,binary_erosion
@@ -227,62 +232,155 @@ def threaded_mppca(a, b, chunk):
 
 
 """
-==========================================
+=========================================================
 Motion correction of DWI data
-@author: DELINTE Nicolas 
-==========================================
+@author: DELINTE Nicolas, BIOUL Nicolas, HENAUT Eliott
+=========================================================
 """
 
-def affine_reg(static, static_grid2world,
-               moving, moving_grid2world):
+def affine_reg(static, static_grid2world, moving, moving_grid2world, work='3D'):
+    """
+    
 
-    c_of_mass = transform_centers_of_mass(static,
-                                          static_grid2world,
-                                          moving,
-                                          moving_grid2world)
+    Parameters
+    ----------
+    static : TYPE
+        DESCRIPTION.
+    static_grid2world : TYPE
+        DESCRIPTION.
+    moving : TYPE
+        DESCRIPTION.
+    moving_grid2world : TYPE
+        DESCRIPTION.
+    work : TYPE, optional
+        DESCRIPTION. The default is '3D'.
 
-    nbins = 32
-    sampling_prop = None
-    metric = MutualInformationMetric(nbins, sampling_prop)
+    Returns
+    -------
+    transformed : TYPE
+        DESCRIPTION.
+    affine : TYPE
+        DESCRIPTION.
 
-    level_iters = [500, 100, 10]
+    """
+    
+    if work=='3D':
+        c_of_mass = transform_centers_of_mass(static, static_grid2world, moving, moving_grid2world)
+        nbins = 32
+        sampling_prop = None
+        metric = MutualInformationMetric(nbins, sampling_prop)
+        
+        level_iters = [500, 100, 10]
+        
+        sigmas = [3.0, 1.0, 0.0]
+        
+        factors = [4, 2, 1]
+        
+        affreg = AffineRegistration(metric=metric,
+                                    level_iters=level_iters,
+                                    sigmas=sigmas,
+                                    factors=factors)
+       
+        transform = TranslationTransform3D()
+        params0 = None
+        starting_affine = c_of_mass.affine
+        translation = affreg.optimize(static, moving, transform, params0,
+                                      static_grid2world, moving_grid2world,
+                                      starting_affine=starting_affine)
+        
+        transformed = translation.transform(moving)
+        save_nifti('/Users/nicolasbioul/Desktop/translation.nii.gz', transformed, moving_grid2world)
+        
+        
+        transform = RotationTransform3D()
+        params0 = None
+        starting_affine = translation.affine
+        rotation = affreg.optimize(static, moving, transform, params0,
+                                 static_grid2world, moving_grid2world,
+                                 starting_affine=starting_affine)
+        
+        transformed = rotation.transform(moving)
+        save_nifti('/Users/nicolasbioul/Desktop/rotation.nii.gz', transformed, moving_grid2world)
+        
+        transform = RigidTransform3D()
+        params0 = None
+        starting_affine = rotation.affine
+        rigid = affreg.optimize(static, moving, transform, params0,
+                                static_grid2world, moving_grid2world,
+                                starting_affine=starting_affine)
+        transformed = rigid.transform(moving)
+        save_nifti('/Users/nicolasbioul/Desktop/rigid.nii.gz', transformed, moving_grid2world)
 
-    sigmas = [3.0, 1.0, 0.0]
+        
+        transform = AffineTransform3D()
+        params0 = None
+        starting_affine = rigid.affine
+        affine = affreg.optimize(static, moving, transform, params0,
+                                 static_grid2world, moving_grid2world,
+                                 starting_affine=starting_affine)
+        
+        transformed = affine.transform(moving)
+        save_nifti('/Users/nicolasbioul/Desktop/affine.nii.gz', transformed, moving_grid2world)
 
-    factors = [4, 2, 1]
-
-    affreg = AffineRegistration(metric=metric,
-                                level_iters=level_iters,
-                                sigmas=sigmas,
-                                factors=factors)
-
-    transform = TranslationTransform3D()
-    params0 = None
-    starting_affine = c_of_mass.affine
-    translation = affreg.optimize(static, moving, transform, params0,
-                                  static_grid2world, moving_grid2world,
-                                  starting_affine=starting_affine)
-
-    transformed = translation.transform(moving)
-
-    transform = RigidTransform3D()
-    params0 = None
-    starting_affine = translation.affine
-    rigid = affreg.optimize(static, moving, transform, params0,
-                            static_grid2world, moving_grid2world,
-                            starting_affine=starting_affine)
-    transformed = rigid.transform(moving)
-
-    transform = AffineTransform3D()
-    params0 = None
-    starting_affine = rigid.affine
-    affine = affreg.optimize(static, moving, transform, params0,
-                             static_grid2world, moving_grid2world,
-                             starting_affine=starting_affine)
-
-    transformed = affine.transform(moving)
-
-    return transformed, affine
+        
+        return transformed, affine
+    
+    elif work=='2D':
+        
+        c_of_mass = transform_centers_of_mass(static,static_grid2world, moving, moving_grid2world)
+        nbins = 32
+        sampling_prop = None
+        metric = MutualInformationMetric(nbins, sampling_prop)
+        
+        level_iters = [500, 100, 10]
+        
+        sigmas = [3.0, 1.0, 0.0]
+        
+        factors = [4, 2, 1]
+        
+        affreg = AffineRegistration(metric=metric,
+                                    level_iters=level_iters,
+                                    sigmas=sigmas,
+                                    factors=factors)
+        
+        transform = TranslationTransform2D()
+        params0 = None
+        starting_affine = c_of_mass.affine
+        translation = affreg.optimize(static, moving, transform, params0,
+                                      static_grid2world, moving_grid2world,
+                                      starting_affine=starting_affine)
+        
+        transformed = translation.transform(moving)
+        
+        
+        transform = RigidTransform2D()
+        params0 = None
+        starting_affine = translation.affine
+        rigid = affreg.optimize(static, moving, transform, params0,
+                                static_grid2world, moving_grid2world,
+                                starting_affine=starting_affine)
+        transformed = rigid.transform(moving)
+        
+        
+        transform = RotationTransform2D()
+        params0 = None
+        starting_affine = rigid.affine
+        rotation = affreg.optimize(static, moving, transform, params0,
+                                      static_grid2world, moving_grid2world,
+                                      starting_affine=starting_affine)
+        
+        transformed = rotation.transform(moving)
+        
+        transform = AffineTransform2D()
+        params0 = None
+        starting_affine = rotation.affine
+        affine = affreg.optimize(static, moving, transform, params0,
+                                 static_grid2world, moving_grid2world,
+                                 starting_affine=starting_affine)
+        
+        transformed = affine.transform(moving)
+    
+        return transformed, affine
 
 
 """
@@ -297,23 +395,23 @@ def mask_Wizard(data,r_fill,r_shape,scal=1,geo_shape='ball',height=5,work='2D'):
     Parameters
     ----------
     data : TYPE : ArrayList
-        The brain data that we want to find a mask.
+        DESCRIPTION: The brain data that we want to find a mask.
     r_fill : TYPE : Interger
-        The rayon of the circle,cylinder,or ball that we use for growing the surface.
+        DESCRIPTION: The radius of the circle,cylinder,or ball that we use for growing the surface. Exclusively used in the fill function.
     r_shape : TYPE : Interger
-        The radius of the circle, cylinder, or ball that we use for the opening/closing.
+        DESCRIPTION: The radius of the circle, cylinder, or ball that we use for the opening/closing.  Exclusively used in the shape_matrix function.
     scal : TYPE : Interger, optional
-        The param λ in the formula y=µ+λ*σ. y is the threshold if we take the voxel or not.
+        DESCRIPTION: The param λ in the formula y=µ+λ*σ. y is the threshold defining the inclusion of a voxel or not. µ is the mean of the array data. σ is it's standard deviation'
         The default is 1.
     geo_shape : TYPE : String, optional
-        The shape of the convolution in the opening/closing. ('ball','cylinder')
+        DESCRIPTION: The shape of the convolution in the opening/closing. ('ball','cylinder')
         The default is 'ball'.
     height : TYPE : int, optional
-        The height of the cylinder of the convolution in the opening/closing. ('ball','cylinder')
+        DESCRIPTION: The height of the cylinder of the convolution in the opening/closing. ('ball','cylinder')
         The default is 'ball'.
     work : TYPE : String, optional
-        The dimension. ('2D','3D')
-        The default is '2D'.
+        DESCRIPTION: The dimension. ('2D','3D')
+        The default is '2D'. Allows working in 2 or 3 dimensions. Switch to '3D'
         
     Returns
     -------
@@ -325,7 +423,8 @@ def mask_Wizard(data,r_fill,r_shape,scal=1,geo_shape='ball',height=5,work='2D'):
     
         (x,y,z)=data.shape
         seed = binsearch(data,x,y,z)
-        brainish = fill(seed, data, 1,r_fill,scal)
+        init_val=int(np.mean(data)+scal*np.sqrt(np.var(data)))
+        brainish = fill(seed, data,r_fill,init_val)
         geo_shape=shape_matrix(r_shape,geo_shape,height,work)
         closing=binary_erosion(binary_dilation(brainish,selem=geo_shape))
         opening=binary_dilation(binary_erosion(closing,selem=geo_shape))
@@ -338,7 +437,8 @@ def mask_Wizard(data,r_fill,r_shape,scal=1,geo_shape='ball',height=5,work='2D'):
             seed=((b0final.shape[0])//2,(b0final.shape[1])//2,i)
             if np.std(b0final[:,:,i]/np.mean(b0final[:,:,i]))>0.5:
                 seed = binsearch(b0final[:,:,i],x,y,work='2D')
-                brainish=fill(seed,b0final[:,:,i],scal,r_fill)
+                init_val=int(np.mean(b0final[:,:,i])+scal*np.sqrt(np.var(b0final[:,:,i])))
+                brainish=fill([seed],b0final[:,:,i],r_fill,init_val)
                 mat=shape_matrix(r_shape)
                 closing = binary_erosion(binary_dilation(brainish,selem=mat),selem=mat)
                 opening = binary_dilation(binary_erosion(closing,selem=mat),selem=mat)
@@ -357,20 +457,71 @@ def mask_Wizard(data,r_fill,r_shape,scal=1,geo_shape='ball',height=5,work='2D'):
     return mask
     
 
-def fill(position, data, new_val,rad,scal=1,work='2D'):
+def fill(position, data,rad,init_val,work='2D'):
+    """
+
+    Parameters
+    ----------
+    position : TYPE: List
+        DESCRIPTION: List containing the seed point or set of mask points on which to start the filling.
+    data : TYPE: Array
+        DESCRIPTION: Image array on which to fill.
+    rad : TYPE: Integer
+        DESCRIPTION: Radius of the neighbourhood to be taken into account when filling. Exclusively used when calling getVoxel
+    init_val : TYPE: Float
+        DESCRIPTION: Inclusing value. If above or equal to this value, the fill function will select the voxel/pixel otherwise it will be excluded.
+    work : TYPE : String, optional
+        DESCRIPTION: The dimension. ('2D','3D')
+        The default is '2D'. Allows working in 2 or 3 dimensions. Switch to '3D'
+
+    Returns
+    -------
+    data_new : TYPE: Array
+        DESCRIPTION: returns the filled out mask with all selected pixels from 2D or 3D image.
+
+    """
     data_new = np.zeros(data.shape)
-    init_val = int(np.mean(data)+scal*np.sqrt(np.var(data))) # can be touched for precision
     voxelList = set()
-    voxelList.add(position)
+    for i in position:
+        voxelList.add(i)
 
     while len(voxelList) > 0:
         voxel = voxelList.pop()
-        voxelList = getVoxels(voxel, data, init_val, voxelList,rad, data_new, new_val,work)
-        data_new[voxel] = int(new_val)
+        voxelList = getVoxels(voxel, data, init_val, voxelList,rad, data_new, work)
+        data_new[voxel] = 1
     return data_new
 
 
-def getVoxels(voxel, data, init_val, voxelList, rad, data_new,new_val,work='2D'):
+def getVoxels(voxel, data, init_val, voxelList, rad, data_new ,work='2D'):
+    """
+    
+
+    Parameters
+    ----------
+    voxel : TYPE: Tuple
+        DESCRIPTION: Contains the coordinates (x,y) in work='2D' or (x,y,z) in work='3D' of the voxel to be analysed
+    data : TYPE: Array
+        DESCRIPTION: image array
+    init_val : TYPE: Float
+        DESCRIPTION: Inclusing value. If above or equal to this value, the fill function will select the voxel/pixel otherwise it will be excluded.
+    voxelList : TYPE: set()
+        DESCRIPTION: Set of all qualified voxels. Each qualifying neighbour of an analysed voxel will be placed in the set adjacentVoxelList,
+        if they qualify when their analysis comes, they will be placed in voxelList.
+    rad : TYPE: Integer
+        DESCRIPTION: Radius of the neighbourhood to be taken into account when filling. Exclusively used when calling getVoxel
+    data_new : TYPE: Array
+        DESCRIPTION: Mask in the making. See fill function
+    work : TYPE : String, optional
+        DESCRIPTION: The dimension. ('2D','3D')
+        The default is '2D'. Allows working in 2 or 3 dimensions. Switch to '3D'
+
+    Returns
+    -------
+    voxelList : TYPE: set
+        DESCRIPTION: The original voxelList (see arguments) in which we have added all qualifying voxels of the image.
+
+    """
+    
     if work=='3D':
         (x, y, z) = voxel
         adjacentVoxelList = set()
@@ -382,11 +533,11 @@ def getVoxels(voxel, data, init_val, voxelList, rad, data_new,new_val,work='2D')
                     adjacentVoxelList.add((x-i,y+j,z+k))
         for adja in adjacentVoxelList:
             if isInbound(adja, data,work):
-                if data[adja] >= init_val and data_new[adja] != new_val:
+                if data[adja] >= init_val and data_new[adja] != 1:
                     voxelList.add(adja)
     else:
         pixel=voxel
-        (x, y) = pixel
+        (x,y) = pixel
         adjacentPixelList = set()
         for i in range(rad):
             h=int(np.sqrt(rad**2-i**2))
@@ -395,12 +546,31 @@ def getVoxels(voxel, data, init_val, voxelList, rad, data_new,new_val,work='2D')
                 adjacentPixelList.add((x-i,y+j))
         for adja in adjacentPixelList:
             if isInbound(adja, data,work):
-                if data[adja] >= init_val and data_new[adja] != new_val:
+                if data[adja] >= init_val and data_new[adja] != 1:
                     voxelList.add(adja)
     return voxelList
 
 
 def isInbound(voxel, data, work='2D'):
+    """
+    Boolean function to know if still in bound. To assess the borders of an array
+
+    Parameters
+    ----------
+    voxel : TYPE: Tuple
+        DESCRIPTION: Contains the coordinates (x,y) in work='2D' or (x,y,z) in work='3D' of the voxel to be analysed
+    data : TYPE: Array
+        DESCRIPTION: image array
+    work : TYPE : String, optional
+        DESCRIPTION: The dimension. ('2D','3D')
+        The default is '2D'. Allows working in 2 or 3 dimensions. Switch to '3D'
+
+    Returns
+    -------
+    TYPE: Boolean
+        DESCRIPTION: True if the voxel lies within the image(array). False otherwise
+
+    """
     if work=='3D':
         return voxel[0] < data.shape[0] and voxel[0] >= 0 and voxel[1] < data.shape[1] and voxel[1] >= 0 and voxel[2] < \
            data.shape[2] and voxel[2] >= 0
@@ -409,6 +579,33 @@ def isInbound(voxel, data, work='2D'):
 
 
 def binsearch(img,x2,y2,z=0,x1=0,y1=0,work='2D'):
+    """
+    This function is a binary search tree that works using a recursive call. 
+
+    Parameters
+    ----------
+    img : TYPE: Array
+        DESCRIPTION: 2 or 3D array of an image
+    x2 : TYPE: Integer
+        DESCRIPTION: Lower cut of the image on x-axis
+    y2 : TYPE: Integer
+        DESCRIPTION: Lower cut of the image on y-axis
+    z : TYPE, optional
+        DESCRIPTION. The default is 0.
+    x1 : TYPE, optional: Integer
+        DESCRIPTION. Upper cut of the image on x-axis. The default is 0.
+    y1 : TYPE, optional: Integer
+        DESCRIPTION. Upper cut of the image on y-axis. The default is 0.
+    work : TYPE : String, optional
+        DESCRIPTION: The dimension. ('2D','3D')
+        The default is '2D'. Allows working in 2 or 3 dimensions. Switch to '3D'
+
+    Returns
+    -------
+    TYPE Integer
+        DESCRIPTION: Returns the best 
+
+    """
     if work=='3D':
         if x2<=x1+1 or y2<=y1+1 :
             return (x1,y1,z//2)
@@ -435,6 +632,22 @@ def binsearch(img,x2,y2,z=0,x1=0,y1=0,work='2D'):
     
      
 def search(l,idx):
+    """
+    
+
+    Parameters
+    ----------
+    l : TYPE
+        DESCRIPTION.
+    idx : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    TYPE
+        DESCRIPTION.
+
+    """
     if len(idx)==1: return idx[0]
     newidx=[]
     for i in range(0,len(idx),2):
@@ -445,6 +658,27 @@ def search(l,idx):
     return search(l,newidx)
     
 def shape_matrix(radius,shape='ball',height=5,work='2D'):
+    """
+    
+
+    Parameters
+    ----------
+    radius : TYPE: float
+        DESCRIPTION: the radius of the sphere (3D) or circle (2D)
+    shape : TYPE, optional: String
+        DESCRIPTION. The default is 'ball'. Only in work='3D' is this parameter important. Switch between 'ball' or 'cylinder' in order to choose the form of the geometric shape that the matrix will depict
+    height : TYPE, optional: Integer
+        DESCRIPTION. The default is 5. If the shape is 'cylinder' then a height is to be input. No use if work='2D' or shape='ball'
+    work : TYPE : String, optional
+        DESCRIPTION: The dimension. ('2D','3D')
+        The default is '2D'. Allows working in 2 or 3 dimensions. Switch to '3D'
+
+    Returns
+    -------
+    mat : TYPE
+        DESCRIPTION.
+
+    """
     if work=='3D':
         mat=0
         if shape=='cylinder':
@@ -485,3 +719,52 @@ def write(file_path,message):
         print('log file not found. Safety mode on --> messages will be printed in console \n')
         print(message +'\n')
     
+def pos_reader(data,work='2D'):
+    """
+    
+
+    Parameters
+    ----------
+    data : TYPE
+        DESCRIPTION.
+    work : TYPE : String, optional
+        DESCRIPTION: The dimension. ('2D','3D')
+        The default is '2D'. Allows working in 2 or 3 dimensions. Switch to '3D'
+
+    Returns
+    -------
+    pos_list : TYPE
+        DESCRIPTION.
+
+    """
+    pos_list=[]
+    if work=='2D':
+        for i in range(np.shape(data)[0]):
+            for j in range(np.shape(data)[1]):
+                if data[i,j]!=0:
+                    pos_list.append((i,j))
+            
+    elif work=='3D':
+        for i in range(np.shape(data)[0]):
+            for j in range(np.shape(data)[1]):
+                for k in range(np.shape(data)[2]):
+                    if data[i,j,k]!=0:
+                        pos_list.append((i,j,k))
+    return pos_list
+
+def AffineSwitch(affine,to='2D'):
+    if to=='2D' and affine.shape==(4,4):
+        affine=np.delete(affine,2,0)
+        affine=np.delete(affine,2,1)
+    elif to=='3D' and affine.shape==(3,3):
+        temp=np.zeros((4,4))
+        temp[:2,:2]=affine[:2,:2]
+        temp[:2,3]=affine[:2,2]
+        temp[2:,2:]=np.eye(2)
+        affine=temp
+    if np.linalg.det(affine)==0.0:
+        for i in range(affine.shape[0]):
+            if affine[i,i]==0.0:
+                affine[i,i]=1
+    return affine
+            
