@@ -65,6 +65,7 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     
     denoisingMPPCA_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/denoisingMPPCA/'
     motionCorr_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/motionCorrection/'
+    topup_path = folder_path + '/subjects/' + patient_path + "/dMRI/preproc/topup"
     brainExtraction_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/brainExtraction/'
     mask_path=folder_path + '/subjects/' + patient_path + '/masks/'
 
@@ -82,37 +83,45 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     ############################
     if Denoising:
         
-        print("Start of denoising step", patient_path)
-        makedir(denoisingMPPCA_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt",log_prefix)
-
-        write(logs,'✅ [Myemouse Preproc] Denoising sequence launched '+str(dt.datetime.now())+'\n')
-        shell_index = []
-        with open(os.path.join(folder_path, "data_" + str(subj_type[patient_path]),"shell_index.txt"), "r") as f:
-            for line in f:
-                shell_index.append(int(line.strip()))
-
-        denoised = data.copy()
-
-        print(shell_index, data.shape)
+        if not(os.path.isdir(denoisingMPPCA_path)) or not(os.path.isfile(denoisingMPPCA_path + '/' + patient_path + '_mppca.nii.gz')):
         
-        threads = []
-        for i in range(len(shell_index)-1):
-            print("Start of mppca for shell", i, " (index:", shell_index[i],",", shell_index[i+1],")")
-            write(logs,'✅ Marcenko-Pastur PCA algorithm launched for shell '+ str(i)+ ' (index:'+ str(shell_index[i])+","+ str(shell_index[i+1])+')'+str(dt.datetime.now())+'\n')
-            a = shell_index[i]
-            b = shell_index[i+1]
-            chunk = data[:,:,:,a:b].copy()
-            threads.append(Thread(target=threaded_mppca, args=(a,b,chunk)))
-            threads[-1].start()
-
-        print("All threads have been launched")
-        write(logs,'✅ All threads have been launched at '+str(dt.datetime.now())+'\n')
-        for i in range(len(threads)):
-            threads[i].join()
-        write(logs,'✅ All threads finished at '+str(dt.datetime.now())+'\n')
-
-        save_nifti(denoisingMPPCA_path + '/' + patient_path + '_mppca.nii.gz', denoised.astype(np.float32), affine)
-        data = denoised
+            print("Start of denoising step", patient_path)
+            makedir(denoisingMPPCA_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt",log_prefix)
+    
+            write(logs,'✅ [Myemouse Preproc] Denoising sequence launched '+str(dt.datetime.now())+'\n')
+            shell_index = []
+            with open(os.path.join(folder_path, "data_" + str(subj_type[patient_path]),"shell_index.txt"), "r") as f:
+                for line in f:
+                    shell_index.append(int(line.strip()))
+    
+            denoised = data.copy()
+    
+            print(shell_index, data.shape)
+            
+            threads = []
+            for i in range(len(shell_index)-1):
+                print("Start of mppca for shell", i, " (index:", shell_index[i],",", shell_index[i+1],")")
+                write(logs,'✅ Marcenko-Pastur PCA algorithm launched for shell '+ str(i)+ ' (index:'+ str(shell_index[i])+","+ str(shell_index[i+1])+')'+str(dt.datetime.now())+'\n')
+                a = shell_index[i]
+                b = shell_index[i+1]
+                chunk = data[:,:,:,a:b].copy()
+                threads.append(Thread(target=threaded_mppca, args=(a,b,chunk)))
+                threads[-1].start()
+    
+            print("All threads have been launched")
+            write(logs,'✅ All threads have been launched at '+str(dt.datetime.now())+'\n')
+            for i in range(len(threads)):
+                threads[i].join()
+            write(logs,'✅ All threads finished at '+str(dt.datetime.now())+'\n')
+    
+            save_nifti(denoisingMPPCA_path + '/' + patient_path + '_mppca.nii.gz', denoised.astype(np.float32), affine)
+            data = denoised
+            
+        else:
+            data, affine = load_nifti(denoisingMPPCA_path + '/' + patient_path + '_mppca.nii.gz')
+            
+            
+                
  
     ##############################
     ### Motion correction step ###
@@ -120,51 +129,54 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     
     
     if Motion_corr:
+        
+        if not(os.path.isdir(motionCorr_path)) or not(os.path.isfile(motionCorr_path + patient_path + '_motionCorrected.nii.gz')) or not(os.path.isfile(motionCorr_path + patient_path + '_motionCorrected.bval')) or not(os.path.isfile(motionCorr_path + patient_path + '_motionCorrected.bvec')):
     
-        print("Motion correction step for subject ", patient_path)
-        makedir(motionCorr_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
+            print("Motion correction step for subject ", patient_path)
+            makedir(motionCorr_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
+    
+            write(logs,'✅ [Myemouse Preproc] Motion correction step for subject '+patient_path+' '+str(dt.datetime.now())+'\n')
+            reg_affines_precorrection = []
+            static_precorrection = data[..., 0]
+            static_grid2world_precorrection = affine
+            moving_grid2world_precorrection = affine
+            for i in range(data.shape[-1]):
+                if gtab.b0s_mask[i]:
+                    print("Motion correction: Premoving b0 number ", i)
+                    write(logs,'✅ Motion correction step for subject '+ patient_path+str(dt.datetime.now())+'\n')
+                    moving = data[...,i]
+                    moved, trans_affine = affine_reg(static_precorrection, static_grid2world_precorrection,
+                                                     moving, moving_grid2world_precorrection)
+                    data[..., i] = moved
+                else:
+                    moving = data[..., i]
+                    data[..., i] = trans_affine.transform(moving)
+                    reg_affines_precorrection.append(trans_affine.affine)
+    
+            gtab_precorrection = reorient_bvecs(gtab, reg_affines_precorrection)
+            
+            #data_b0s = data[..., gtab.b0s_mask]
+            #data_avg_b0 = data_b0s.mean(axis=-1)
+            #save_nifti(motionCorr_path + patient_path + '_avgB0.nii.gz', data_avg_b0, affine)
+            #save_nifti(motionCorr_path + patient_path + '_B0S.nii.gz', data_b0s, affine)
+            
+            bvec = gtab.bvecs
+            zerobvec = np.where((bvec[:, 0] == 0) & (bvec[:, 1] == 0) & (bvec[:, 2] == 0))
+            bvec[zerobvec] = [1, 0, 0]
+            save_nifti(motionCorr_path + patient_path + '_motionCorrected.nii.gz', data, affine)
+            np.savetxt(motionCorr_path + patient_path + '_motionCorrected.bval', bvals)
+            np.savetxt(motionCorr_path + patient_path + '_motionCorrected.bvec', bvec)
+    
+            gtab = gtab_precorrection
+            write(logs,'✅ [Myemouse_preproc] Motion correction step ended for subject '+patient_path+'  '+str(dt.datetime.now())+'\n')
 
-        write(logs,'✅ [Myemouse Preproc] Motion correction step for subject '+patient_path+' '+str(dt.datetime.now())+'\n')
-        reg_affines_precorrection = []
-        static_precorrection = data[..., 0]
-        static_grid2world_precorrection = affine
-        moving_grid2world_precorrection = affine
-        for i in range(data.shape[-1]):
-            if gtab.b0s_mask[i]:
-                print("Motion correction: Premoving b0 number ", i)
-                write(logs,'✅ Motion correction step for subject '+ patient_path+str(dt.datetime.now())+'\n')
-                moving = data[...,i]
-                moved, trans_affine = affine_reg(static_precorrection, static_grid2world_precorrection,
-                                                 moving, moving_grid2world_precorrection)
-                data[..., i] = moved
-            else:
-                moving = data[..., i]
-                data[..., i] = trans_affine.transform(moving)
-                reg_affines_precorrection.append(trans_affine.affine)
-
-        gtab_precorrection = reorient_bvecs(gtab, reg_affines_precorrection)
-        data_b0s = data[..., gtab.b0s_mask]
-
-        data_avg_b0 = data_b0s.mean(axis=-1)
-        save_nifti(motionCorr_path + patient_path + '_avgB0.nii.gz', data_avg_b0, affine)
-        save_nifti(motionCorr_path + patient_path + '_B0S.nii.gz', data_b0s, affine)
-        bvec = gtab.bvecs
-        zerobvec = np.where((bvec[:, 0] == 0) & (bvec[:, 1] == 0) & (bvec[:, 2] == 0))
-        bvec[zerobvec] = [1, 0, 0]
-        save_nifti(motionCorr_path + patient_path + '_motionCorrected.nii.gz', data, affine)
-        np.savetxt(motionCorr_path + patient_path + '_motionCorrected.bval', bvals)
-        np.savetxt(motionCorr_path + patient_path + '_motionCorrected.bvec', bvec)
-
-        gtab = gtab_precorrection
-        write(logs,'✅ [Myemouse_preproc] Motion correction step ended for subject '+patient_path+'  '+str(dt.datetime.now())+'\n')
-
-    elif os.path.exists(motionCorr_path + patient_path + '_motionCorrected.nii.gz'):
-        data, affine = load_nifti(motionCorr_path + patient_path + '_motionCorrected.nii.gz')
-        fbval = motionCorr_path + patient_path + '_motionCorrected.bval'
-        fbvec = motionCorr_path + patient_path + '_motionCorrected.bvec'
-        bvals, bvecs = read_bvals_bvecs(fbval, fbvec)
-        gtab = gradient_table(bvals, bvecs, b0_threshold=65)
-        write(logs,'⏭ [Myemouse_preproc] Fast forwarding to brain extraction'+ str(dt.datetime.now())+'\n')
+        else:
+            data, affine = load_nifti(motionCorr_path + patient_path + '_motionCorrected.nii.gz')
+            fbval = motionCorr_path + patient_path + '_motionCorrected.bval'
+            fbvec = motionCorr_path + patient_path + '_motionCorrected.bvec'
+            bvals, bvecs = read_bvals_bvecs(fbval, fbvec)
+            gtab = gradient_table(bvals, bvecs, b0_threshold=65)
+            write(logs,'⏭ [Myemouse_preproc] Fast forwarding to brain extraction'+ str(dt.datetime.now())+'\n')
 
     
 
@@ -173,138 +185,142 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     #############################
     
     if Topup:
-        print('Topup step')
         
-        multiple_encoding=False
-        topup_log = open(folder_path + '/subjects/' + patient_path + "/dMRI/preproc/topup/topup_logs.txt", "a+")
+        if not(os.path.isdir(topup_path)) :
         
-        if Motion_corr:
-            imain_tot = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/motionCorrection/' + patient_path + 'motionCorrected.nii.gz'
-        elif Denoising:
-            imain_tot = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/denoisingMPPCA/' + patient_path + '_mppca.nii.gz'
-        #else:
-            #imain_tot = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/bet/' + patient_path + '_mask.nii.gz'
-
-        topup_path = folder_path + '/subjects/' + patient_path + "/dMRI/preproc/topup"
-
-        with open(folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + 'index.txt') as f:
-            line = f.read()
-            line = " ".join(line.split())
-            topup_index = [int(s) for s in line.split(' ')]
-
-        with open(folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + 'acqparams.txt') as f:
-            topup_acq = [[float(x) for x in line2.split()] for line2 in f]
-
-        #Find all the bo to extract.
-        current_index = 0
-        all_index ={}
-        i=1
-        roi=[]
-        for ind in topup_index:
-            if ind!=current_index and ind not in all_index:
-                roi.append(i)
-                fslroi = "fslroi " + imain_tot + " " + topup_path + "/b0_"+str(i)+".nii.gz "+str(i-1)+" 1"
-                process = subprocess.Popen(fslroi, universal_newlines=True, shell=True, stdout=topup_log, stderr=subprocess.STDOUT)
-                
-                output, error = process.communicate()
-                print("B0 of index" + str(i) + " extracted!")
-            current_index=ind
-            all_index[ind] = all_index.get(ind,0) + 1
-            i=i+1
-
-        #Merge b0
-        if len(roi) == 1:
-            shutil.copyfile(topup_path + "/b0_"+str(roi[0])+".nii.gz", topup_path + "/b0.nii.gz")
-        else:
-            roi_to_merge=""
-            for r in roi:
-                roi_to_merge = roi_to_merge + " " + topup_path +"/b0_" + str(r) + ".nii.gz"
-            print("The following roi will be merged: " + roi_to_merge)
-            cmd = "fslmerge -t " + topup_path + "/b0.nii.gz" + roi_to_merge
-            process = subprocess.Popen(cmd, universal_newlines=True, shell=True, stdout=topup_log, stderr=subprocess.STDOUT)
-            output, error = process.communicate()
-
-        #Check if multiple or single encoding direction
-        curr_x=0.0
-        curr_y=0.0
-        curr_z=0.0
-        first=True
-        print("Topup acq parameters:")
-        print(topup_acq)
-        for acq in topup_acq:
-            if not first and (curr_x!=acq[1] or curr_y!=acq[2] or curr_z!=acq[3]):
-                multiple_encoding=True
-            first=False
-            curr_x=acq[1]
-            curr_y=acq[2]
-            curr_z=acq[3]
+            print('begin Topup step')
             
-        core_count = 1
-
-        if multiple_encoding :
-            makedir(topup_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
-            #f = open(folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", "a+")
-            #f.write("[" + log_prefix + "] " + datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S") + ": Patient %s \n" % p + " has multiple direction of gradient encoding, launching topup directly ")
-            topupConfig = 'b02b0.cnf' #if topupConfig is None else topupConfig
-            bashCommand = 'export OMP_NUM_THREADS='+str(core_count)+' ; export FSLPARALLEL='+str(core_count)+' ; topup --imain="' + topup_path + '/b0.nii.gz" --config="' + topupConfig + '" --datain="' + folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + 'acqparams.txt" --out="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_estimate" --fout="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_fout_estimate" --iout="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_iout_estimate" --verbose'
-            bashcmd = bashCommand.split()
-            #print("[" + log_prefix + "] " + datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S") + ": Topup launched for patient %s \n" % p + " with bash command " + bashCommand)
-
-            #f.write("[" + log_prefix + "] " + datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S") + ": Topup launched for patient %s \n" % p + " with bash command " + bashCommand)
-            #f.close()
-
-            process = subprocess.Popen(bashCommand, universal_newlines=True, shell=True, stdout=topup_log, stderr=subprocess.STDOUT)
-            # wait until topup finish
-            output, error = process.communicate()
-
-        inindex=""
-        first=True
-        for r in roi:
-            if first:
-                inindex = str(topup_index[r-1])
-                #first = False
+            multiple_encoding=False
+            topup_log = open(folder_path + '/subjects/' + patient_path + "/dMRI/preproc/topup/topup_logs.txt", "a+")
+            
+            if Motion_corr:
+                imain_tot = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/motionCorrection/' + patient_path + 'motionCorrected.nii.gz'
+            elif Denoising:
+                imain_tot = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/denoisingMPPCA/' + patient_path + '_mppca.nii.gz'
+            #else:
+                #imain_tot = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/bet/' + patient_path + '_mask.nii.gz'
+    
+    
+            with open(folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + 'index.txt') as f:
+                line = f.read()
+                line = " ".join(line.split())
+                topup_index = [int(s) for s in line.split(' ')]
+    
+            with open(folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + 'acqparams.txt') as f:
+                topup_acq = [[float(x) for x in line2.split()] for line2 in f]
+    
+            #Find all the bo to extract.
+            current_index = 0
+            all_index ={}
+            i=1
+            roi=[]
+            for ind in topup_index:
+                if ind!=current_index and ind not in all_index:
+                    roi.append(i)
+                    fslroi = "fslroi " + imain_tot + " " + topup_path + "/b0_"+str(i)+".nii.gz "+str(i-1)+" 1"
+                    process = subprocess.Popen(fslroi, universal_newlines=True, shell=True, stdout=topup_log, stderr=subprocess.STDOUT)
+                    
+                    output, error = process.communicate()
+                    print("B0 of index" + str(i) + " extracted!")
+                current_index=ind
+                all_index[ind] = all_index.get(ind,0) + 1
+                i=i+1
+    
+            #Merge b0
+            if len(roi) == 1:
+                shutil.copyfile(topup_path + "/b0_"+str(roi[0])+".nii.gz", topup_path + "/b0.nii.gz")
             else:
-                inindex = inindex + "," + str(topup_index[r-1])
-
-        bashCommand2 = 'applytopup --imain="' + imain_tot + '" --inindex='+inindex+' --datain="' + folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + 'acqparams.txt" --topup="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_estimate" --out="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_corr"'
-
-        process2 = subprocess.Popen(bashCommand2, universal_newlines=True, shell=True, stdout=topup_log, stderr=subprocess.STDOUT)
-        # wait until apply topup finish
-        output, error = process2.communicate()
+                roi_to_merge=""
+                for r in roi:
+                    roi_to_merge = roi_to_merge + " " + topup_path +"/b0_" + str(r) + ".nii.gz"
+                print("The following roi will be merged: " + roi_to_merge)
+                cmd = "fslmerge -t " + topup_path + "/b0.nii.gz" + roi_to_merge
+                process = subprocess.Popen(cmd, universal_newlines=True, shell=True, stdout=topup_log, stderr=subprocess.STDOUT)
+                output, error = process.communicate()
+    
+            #Check if multiple or single encoding direction
+            curr_x=0.0
+            curr_y=0.0
+            curr_z=0.0
+            first=True
+            print("Topup acq parameters:")
+            print(topup_acq)
+            for acq in topup_acq:
+                if not first and (curr_x!=acq[1] or curr_y!=acq[2] or curr_z!=acq[3]):
+                    multiple_encoding=True
+                first=False
+                curr_x=acq[1]
+                curr_y=acq[2]
+                curr_z=acq[3]
+                
+            core_count = 1
+    
+            if multiple_encoding :
+                makedir(topup_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
+                #f = open(folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", "a+")
+                #f.write("[" + log_prefix + "] " + datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S") + ": Patient %s \n" % p + " has multiple direction of gradient encoding, launching topup directly ")
+                topupConfig = 'b02b0.cnf' #if topupConfig is None else topupConfig
+                bashCommand = 'export OMP_NUM_THREADS='+str(core_count)+' ; export FSLPARALLEL='+str(core_count)+' ; topup --imain="' + topup_path + '/b0.nii.gz" --config="' + topupConfig + '" --datain="' + folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + 'acqparams.txt" --out="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_estimate" --fout="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_fout_estimate" --iout="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_iout_estimate" --verbose'
+                bashcmd = bashCommand.split()
+                #print("[" + log_prefix + "] " + datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S") + ": Topup launched for patient %s \n" % p + " with bash command " + bashCommand)
+    
+                #f.write("[" + log_prefix + "] " + datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S") + ": Topup launched for patient %s \n" % p + " with bash command " + bashCommand)
+                #f.close()
+    
+                process = subprocess.Popen(bashCommand, universal_newlines=True, shell=True, stdout=topup_log, stderr=subprocess.STDOUT)
+                # wait until topup finish
+                output, error = process.communicate()
+    
+            inindex=""
+            first=True
+            for r in roi:
+                if first:
+                    inindex = str(topup_index[r-1])
+                    first = False
+                else:
+                    inindex = inindex + "," + str(topup_index[r-1])
+    
+            bashCommand2 = 'applytopup --imain="' + imain_tot + '" --inindex='+inindex+' --datain="' + folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + 'acqparams.txt" --topup="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_estimate" --out="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_corr"'
+    
+            process2 = subprocess.Popen(bashCommand2, universal_newlines=True, shell=True, stdout=topup_log, stderr=subprocess.STDOUT)
+            # wait until apply topup finish
+            output, error = process2.communicate()
     
     #############################
     ### Brain extraction step ###
     #############################
     if Mask_off:
-        print('Brain extraction step')
-        write(logs,'✅ [Myemouse_preproc] strating brain extraction step'+ str(dt.datetime.now())+'\n')
-
+        
+        if not(os.path.isdir(brainExtraction_path)) or not(os.path.isfile(brainExtraction_path + patient_path + '_Extracted_brain.nii.gz')):
+            print('Brain extraction step')
+            write(logs,'✅ [Myemouse_preproc] strating brain extraction step'+ str(dt.datetime.now())+'\n')
     
-        makedir(brainExtraction_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
-        makedir(mask_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt",log_prefix)
         
-        # created a brain for designing a mask (sum of all shells)
-        b0final=np.zeros(data.shape[:-1])
-        for i in range(data.shape[-1]):
-                b0final+=data[:, :, :, i]
-    
-        save_nifti(brainExtraction_path + patient_path + '_Brain_extraction_ref.nii.gz',b0final, affine)
+            makedir(brainExtraction_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
+            makedir(mask_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt",log_prefix)
+            
+            # created a brain for designing a mask (sum of all shells)
+            b0final=np.zeros(data.shape[:-1])
+            for i in range(data.shape[-1]):
+                    b0final+=data[:, :, :, i]
         
-        # function to find a mask
-        final_mask=mask_Wizard(b0final,4,7,work='2D')
-        
-        # Saving
-        out = nib.Nifti1Image(final_mask, affine)
-        out.to_filename(mask_path + patient_path + '_brain_mask.nii.gz')
-        
-        data[final_mask==0] = 0
-        
-        save_nifti(brainExtraction_path + patient_path + '_Extracted_brain.nii.gz',data, affine)
-        write(logs,'✅ [Myemouse_preproc] brain extraction step has ended'+ str(dt.datetime.now())+'\n')
+            save_nifti(brainExtraction_path + patient_path + '_Brain_extraction_ref.nii.gz',b0final, affine)
+            
+            # function to find a mask
+            final_mask=mask_Wizard(b0final,4,7,work='2D')
+            
+            # Saving
+            out = nib.Nifti1Image(final_mask, affine)
+            out.to_filename(mask_path + patient_path + '_brain_mask.nii.gz')
+            
+            data[final_mask==0] = 0
+            
+            save_nifti(brainExtraction_path + patient_path + '_Extracted_brain.nii.gz',data, affine)
+            write(logs,'✅ [Myemouse_preproc] brain extraction step has ended'+ str(dt.datetime.now())+'\n')
         
 
-    elif os.path.exists(brainExtraction_path + patient_path + '_Extracted_brain.nii.gz'):
-        data, affine = load_nifti(brainExtraction_path + patient_path + '_Extracted_brain.nii.gz')
+        else:
+            data, affine = load_nifti(brainExtraction_path + patient_path + '_Extracted_brain.nii.gz')
         
 
         

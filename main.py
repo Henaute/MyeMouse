@@ -59,14 +59,14 @@ def create_folder(path,logs,mode=0o777,replace=True):
         os.mkdir(path)
         if mode!=0o777:
             os.chmod(path,mode)
-        write(logs,'✅ New directory has been created at '+ path+' with mode '+ mode+'\n')
+        write(logs,'✅ New directory has been created at '+ path+' with mode '+ str(mode) +'\n')
     else:
         write(logs,'⏭ You have chosen not to replace '+path+'\n')
         if not os.path.exists(path):
             os.mkdir(path)
             if mode!=0o777:
                 os.chmod(path,mode)
-            write(logs,'✅ New directory has been created at '+ path+' with mode '+ mode+'\n')
+            write(logs,'✅ New directory has been created at '+ path+' with mode '+ str(mode) +'\n')
 
 from myemouse_preproc import preprocessing
 
@@ -201,6 +201,7 @@ def link(Input, Out, nVol, subjectName,logs):
                 match = True
                 break
 
+
     if not match:
         dataFolderIndex.sort()
         if len(dataFolderIndex) > 0:
@@ -278,6 +279,9 @@ if __name__ == '__main__':
                       help='replace data True/False')
     parser.add_option('-p','--preprocessing',dest = 'preprocessing',
                       help='preprocessing data True/False')
+    parser.add_option('-m','--microstructure',dest = 'microstructure',
+                      help='microstructure DTI/NODDI/FingerPrinting/ALL')
+    
     
     (options,args) = parser.parse_args()
     
@@ -303,7 +307,7 @@ if __name__ == '__main__':
         replace = False
         write(logs,'⏭ You have chosen not to replace the data\n')
     else:
-        replace = False
+        replace = True
         write(logs,'♻️ You have chosen to replace the data\n')
          
     preproc = vars(options)['preprocessing']
@@ -314,6 +318,8 @@ if __name__ == '__main__':
         preproc = True
         write(logs,'🕐🕑🕒 You have chosen to preprocess the data\n')
           
+    struc = vars(options)['microstructure']
+    
     BaseIN = os.path.join(Base,'raw')
     BaseOUT = os.path.join(Base,'Convert')
     create_folder(BaseOUT,logs,mode=0o777, replace=replace)
@@ -407,65 +413,57 @@ if __name__ == '__main__':
             
 
     # Preprocessing: Motion Correction, Brain extraction,
-    if not preproc:
+    if preproc:
+
         for dirr in os.listdir(ProcIN+'/subjects'):
-            if os.path.isdir(ProcIN+'/subjects/'+dirr) and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'_dmri_preproc.bval') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'_dmri_preproc.bvec') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'_dmri_preproc.nii.gz'):
-                continue
-            elif os.path.isdir(ProcIN+'/subjects/'+dirr):
-                write(logs,'❗️ Although you have chosen not to replace the files, the preprocessed files haven t been found. We will proceed to preprocessing \n')
-                write(logs,'✅ [Myemouse_preproc] has been launched '+str(dt.datetime.now())+'\n')
-                study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
-                                        function_name="preprocessing", slurm=False, slurm_timeout=None, cpus=None,
-                                        slurm_mem=None)
-                write(logs,'✅ [Myemouse_preproc] has ended successfuly '+str(dt.datetime.now())+'\n')
-    else:
-        for dirr in os.listdir(ProcIN+'/subjects'):
-            if os.path.isdir(ProcIN+'/subjects/'+dirr) and not os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc'):
-                try:
-                    create_folder(ProcIN+'/subjects/'+dirr+'/dMRI/preproc',logs,0o777,True)
-                    write(logs,ProcIN+'/subjects/'+dirr+'/dMRI/preproc'+' was removed from your computer 🗑\n')
-                except:
-                    write(logs,'⚠️⚠️⚠️ WARNING!!   '+ProcIN+'/subjects/'+dirr+'/dMRI/preproc'+' could not be removed from your computer!! Try deleting it manually or change permissions \n')
-                       
+            if os.path.isdir(ProcIN+'/subjects/'+dirr) and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc'):
+               try:
+                   create_folder(ProcIN+'/subjects/'+dirr+'/dMRI/preproc',logs,True)
+                   write(logs,ProcIN+'/subjects/'+dirr+'/dMRI/preproc'+' was removed from your computer 🗑\n')
+                   
+               except FileNotFoundError:
+                   write(logs,'⚠️⚠️⚠️ WARNING!!   '+ProcIN+'/subjects/'+dirr+'/dMRI/preproc'+' could not be removed from your computer!! Try deleting it manually \n')
+                   
+                                                    
         write(logs,'✅ [Myemouse_preproc] has been launched '+str(dt.datetime.now())+'\n')
         study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
-                                            function_name="preprocessing", slurm=False, slurm_timeout=None, cpus=None,
-                                            slurm_mem=None)
+                                        function_name="preprocessing", slurm=True, slurm_timeout="06:00:00", cpus=8,
+                                        slurm_mem=1024)
         write(logs,'✅ [Myemouse_preproc] has ended successfuly '+str(dt.datetime.now())+'\n')
-          
-    # Microstructural metrics
-    dic_path = '/Volumes/LaCie/Thesis/fingerprinting/dictionary_fixed_rad_dist_Bruker_StLuc.mat'
-    write(logs,'✅ Dti started on patient list '+str(dt.datetime.now()))
-    study.dti(patient_list_m=patient_list)
-    write(logs,'✅ Dti ended on patient list '+str(dt.datetime.now()))
-    write(logs,'✅ Noddi started on patient list '+str(dt.datetime.now()))
-    study.noddi(use_wm_mask=False, patient_list_m=patient_list, cpus=4)
-    write(logs,'✅ Noddi ended on patient list '+str(dt.datetime.now()))
-    write(logs,'✅ Fingerprinting started on patient list '+str(dt.datetime.now()))
-    study.fingerprinting(dic_path, patient_list_m=patient_list, cpus=1, CSD_bvalue=6000)
-    write(logs, '✅ Fingerprinting ended on patient list '+str(dt.datetime.now()))
-    
-    
-    Atlas_ref=''
-    Mouse_ref='/Users/nicolasbioul/Desktop/Thesis/Groupe_1/Merge/subjects/20200113_133132_Cuprizone_experiment_2019_1_3'
-    
-    moving,moving_affine=load_nifti(Mouse_ref+'/dMRI/preproc/20200113_133132_Cuprizone_experiment_2019_1_3_dmri_preproc.nii.gz')
-    moving=moving[...,243]
-    base = os.path.join(ProcIN,'subjects')
-    for subject in os.listdir(base):
-        Subject=os.path.join(base,subject)
-        if os.path.isdir(Subject) and Subject!=Mouse_ref:
-            static,static_affine = load_nifti(Subject+'/dMRI/preproc/'+subject+'_dmri_preproc.nii.gz')
-            static=static[...,243]
-            moved, trans_affine = affine_reg(static, static_affine, moving, moving_affine)
-            Output=os.path.join(Subject+'/masks/Atlas')
-            create_folder(Output,logs,0o777,False)
-            for item in os.listdir(Atlas_ref):
-                if '.nii.gz' in item:
-                    atlas,atlas_affine=load_nifti(Atlas_ref+'/'+item)
-                    done=trans_affine.transform(atlas)
-                    save_nifti(Output+'/'+item,done,atlas_affine)
-
-
-
+        
             
+    # Microstructural metrics
+    dic_path = '/CECI/proj/pilab/PermeableAccess/souris_MKF3Hp7nU/Code/Dico.mat'
+    
+    if struc == 'DTI':
+        write(logs,'✅ Dti started on patient list '+str(dt.datetime.now()))
+        study.dti(patient_list_m=patient_list, slurm=True)
+        write(logs,'✅ Dti ended on patient list '+str(dt.datetime.now()))
+    elif struc == 'NODDI':
+        write(logs,'✅ Noddi started on patient list '+str(dt.datetime.now()))
+        study.noddi(use_wm_mask=False, patient_list_m=patient_list, cpus=4, slurm=True)
+        write(logs,'✅ Noddi ended on patient list '+str(dt.datetime.now()))
+    elif struc == 'MF':
+        write(logs,'✅ Fingerprinting started on patient list '+str(dt.datetime.now()))
+        study.fingerprinting(dic_path, patient_list_m=patient_list, slurm=True, cpus=8, CSD_bvalue=6000, CSD_FA_treshold=0.3)
+        write(logs, '✅ Fingerprinting ended on patient list '+str(dt.datetime.now()))
+    elif struc == 'Diamond':
+        write(logs,'✅ Diamond started on patient list '+str(dt.datetime.now()))
+        study.diamond(use_wm_mask=False, patient_list_m=patient_list , cpus=4, slurm=True, customDiamond=" --ntensors 2 --reg 1.0 --estimb0 1 --automose aicu --mosemodels --fascicle diamondcyl --waterfraction 1 --waterDiff 0.003 --omtm 1 --residuals --verbose 1 --log  --threshold 70000000 ")
+        write(logs,'✅ Diamond ended on patient list '+str(dt.datetime.now()))
+    elif struc == 'ALL':
+        write(logs,'✅ Dti started on patient list '+str(dt.datetime.now()))
+        study.dti(patient_list_m=patient_list, slurm=True)
+        write(logs,'✅ Dti ended on patient list '+str(dt.datetime.now()))
+        write(logs,'✅ Noddi started on patient list '+str(dt.datetime.now()))
+        study.noddi(use_wm_mask=False, patient_list_m=patient_list, cpus=4, slurm=True)
+        write(logs,'✅ Noddi ended on patient list '+str(dt.datetime.now()))
+        write(logs,'✅ Diamond started on patient list '+str(dt.datetime.now()))
+        study.diamond(use_wm_mask=False, patient_list_m=patient_list , cpus=4, slurm=True)
+        write(logs,'✅ Diamond ended on patient list '+str(dt.datetime.now()))
+        write(logs,'✅ Fingerprinting started on patient list '+str(dt.datetime.now()))
+        study.fingerprinting(dic_path, patient_list_m=patient_list, slurm=True, cpus=8, CSD_bvalue=6000, CSD_FA_treshold=0.3)
+        write(logs, '✅ Fingerprinting ended on patient list '+str(dt.datetime.now()))
+        
+        
+        
