@@ -47,24 +47,26 @@ from myemouse_preproc import affine_reg
 from dipy.io.image import load_nifti, save_nifti
 from dipy.viz import regtools
     
-def create_folder(path,logs,mode=None,replace=True):
+def create_folder(path,logs,mode=0o777,replace=True):
     if replace:
         if os.path.exists(path):
             try:
                 shutil.rmtree(path)
                 write(logs,'♻️ You have chosen to replace the existing directory. The old directory has been removed'+'\n')
-            except FileNotFoundError:
+            except:
                 write(logs,'⚠️⚠️⚠️ WARNING!!   '+BaseOUT+' could not be removed from your computer!! Try deleting it manually')
                 sys.exit()
         os.mkdir(path)
-        if mode!=0:
+        if mode!=0o777:
             os.chmod(path,mode)
-        write(logs,'✅ New directory has been created at '+ path+'\n')
+        write(logs,'✅ New directory has been created at '+ path+' with mode '+ mode+'\n')
     else:
         write(logs,'⏭ You have chosen not to replace '+path+'\n')
         if not os.path.exists(path):
             os.mkdir(path)
-            write(logs,'✅ New directory has been created at '+ path +'\n')
+            if mode!=0o777:
+                os.chmod(path,mode)
+            write(logs,'✅ New directory has been created at '+ path+' with mode '+ mode+'\n')
 
 from myemouse_preproc import preprocessing
 
@@ -96,7 +98,7 @@ def convertAndMerge(Input, Output, subject,logs):
     print(bru.scans_list)
     print(bru.list_new_name_each_scan)
 
-    # call the function convert, to convert the study:
+    # call the function convert, to convert the study from DICOM to NifTi:
     print("\n","[convertAndMerge]", "Conversion step initiated")
     write(logs,'✅ [convertAndMerge]  '+ ' Conversion step initiated'+ str(dt.datetime.now())+'\n')
     write(logs,'🔔 [convertAndMerge] Any problems occuring now until the next log issue from the bruker2nifti library\n')
@@ -150,7 +152,7 @@ def convertAndMerge(Input, Output, subject,logs):
         elif (method == "nmrsuDtiEpi"):
             print("nmrsuDtiEpi", dirr)
             write(logs,'✅ [convertAndMerge] Treating nmrsuDtiEpi at'+dirr+'   '+str(dt.datetime.now())+'\n')
-            create_folder(os.path.join(Output, subject, "reverse_encoding"),logs,mode=0o777, replace=False)
+            create_folder(os.path.join(Output, subject, "reverse_encoding"),logs, replace=False)
             dwi = nib.load(os.path.join(basedir, dirr + ".nii.gz"))
             bval = np.load(os.path.join(basedir,dirr + "_DwEffBval.npy"))
             bvec = np.load(os.path.join(basedir, dirr + "_DwGradVec.npy"))
@@ -167,8 +169,8 @@ def convertAndMerge(Input, Output, subject,logs):
             write(logs,'⚠️⚠️⚠️ [convertAndMerge]'+dirr+'  is an unknow acquisition method  '+str(dt.datetime.now())+'\n')
             
 
-    np.savetxt(os.path.join(Output, subject, subject + ".bvec"), bvecs, fmt="%.42f")
-    np.savetxt(os.path.join(Output, subject, subject + ".bval"), bvals, newline=' ', fmt="%.42f")
+    np.savetxt(os.path.join(Output, subject, subject + ".bvec"), bvecs.T, fmt="%.42f")
+    np.savetxt(os.path.join(Output, subject, subject + ".bval"), bvals.T, newline=' ', fmt="%.42f")
     mergedDWI.to_filename(os.path.join(Output, subject, subject+".nii.gz"))
     print("Number of total volumes: ", bvals.shape)
 
@@ -205,8 +207,8 @@ def link(Input, Out, nVol, subjectName,logs):
             typeFolder = "data_" + str(dataFolderIndex[-1]+1)
         else:
             typeFolder = "data_1"
-        create_folder(os.path.join(Out, typeFolder),logs,mode=0o777)
-        create_folder(os.path.join(Out, typeFolder, "reverse_encoding"),logs,mode=0o777)
+        create_folder(os.path.join(Out, typeFolder),logs)
+        create_folder(os.path.join(Out, typeFolder, "reverse_encoding"),logs)
         index = open(os.path.join(Out, typeFolder, "index.txt"), "w")
         for i in range(nVol):
             index.write('1 ')
@@ -264,9 +266,6 @@ if __name__ == '__main__':
                       help='replace data True/False')
     parser.add_option('-p','--preprocessing',dest = 'preprocessing',
                       help='preprocessing data True/False')
-    parser.add_option('-f','--fastmode',dest = 'fastmode',
-                      help='fastmode True/False')
-    
     
     (options,args) = parser.parse_args()
     
@@ -302,13 +301,6 @@ if __name__ == '__main__':
     else:
         preproc = True
         write(logs,'🕐🕑🕒 You have chosen to preprocess the data\n')
-    fast = vars(options)['fastmode']
-    if fast in ['False','false','F','f','Flase','flase','Fasle','fasle','Faux','faux','Non','non','no','No','N','n']:
-        fast = False
-        write(logs,'🕐🕑🕒 You have chosen not to fast forward\n')
-    else:
-        fast = True
-        write(logs,'⏭ You have chosen to fast forward \n')
           
     BaseIN = os.path.join(Base,'raw')
     BaseOUT = os.path.join(Base,'Convert')
@@ -403,33 +395,31 @@ if __name__ == '__main__':
             
 
     # Preprocessing: Motion Correction, Brain extraction,
-    if preproc:
-        if fast:
-            for dirr in os.listdir(ProcIN+'/subjects'):
-                if os.path.isdir(ProcIN+'/subjects/'+dirr) and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'_dmri_preproc.bval') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'_dmri_preproc.bvec') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'_dmri_preproc.nii.gz'):
-                    continue
-                elif os.path.isdir(ProcIN+'/subjects/'+dirr):
-                    write(logs,'❗️ Although you have chosen not to replace the files, the preprocessed files haven t been found. We will proceed to preprocessing \n')
-                    write(logs,'✅ [Myemouse_preproc] has been launched '+str(dt.datetime.now())+'\n')
-                    study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
-                                            function_name="preprocessing", slurm=False, slurm_timeout=None, cpus=None,
-                                            slurm_mem=None)
-                    write(logs,'✅ [Myemouse_preproc] has ended successfuly '+str(dt.datetime.now())+'\n')
-        else:
-            for dirr in os.listdir(ProcIN+'/subjects'):
-                if os.path.isdir(ProcIN+'/subjects/'+dirr) and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc'):
-                   try:
-                       create_folder(ProcIN+'/subjects/'+dirr+'/dMRI/preproc',logs,0o777,True)
-                       write(logs,ProcIN+'/subjects/'+dirr+'/dMRI/preproc'+' was removed from your computer 🗑\n')
-                   except:
-                       write(logs,'⚠️⚠️⚠️ WARNING!!   '+ProcIN+'/subjects/'+dirr+'/dMRI/preproc'+' could not be removed from your computer!! Try deleting it manually or change permissions \n')
+    if not preproc:
+        for dirr in os.listdir(ProcIN+'/subjects'):
+            if os.path.isdir(ProcIN+'/subjects/'+dirr) and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'_dmri_preproc.bval') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'_dmri_preproc.bvec') and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc/'+dirr+'_dmri_preproc.nii.gz'):
+                continue
+            elif os.path.isdir(ProcIN+'/subjects/'+dirr):
+                write(logs,'❗️ Although you have chosen not to replace the files, the preprocessed files haven t been found. We will proceed to preprocessing \n')
+                write(logs,'✅ [Myemouse_preproc] has been launched '+str(dt.datetime.now())+'\n')
+                study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
+                                        function_name="preprocessing", slurm=False, slurm_timeout=None, cpus=None,
+                                        slurm_mem=None)
+                write(logs,'✅ [Myemouse_preproc] has ended successfuly '+str(dt.datetime.now())+'\n')
+    else:
+        for dirr in os.listdir(ProcIN+'/subjects'):
+            if os.path.isdir(ProcIN+'/subjects/'+dirr) and not os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc'):
+                try:
+                    create_folder(ProcIN+'/subjects/'+dirr+'/dMRI/preproc',logs,0o777,True)
+                    write(logs,ProcIN+'/subjects/'+dirr+'/dMRI/preproc'+' was removed from your computer 🗑\n')
+                except:
+                    write(logs,'⚠️⚠️⚠️ WARNING!!   '+ProcIN+'/subjects/'+dirr+'/dMRI/preproc'+' could not be removed from your computer!! Try deleting it manually or change permissions \n')
                        
-                                                        
-            write(logs,'✅ [Myemouse_preproc] has been launched '+str(dt.datetime.now())+'\n')
-            study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
+        write(logs,'✅ [Myemouse_preproc] has been launched '+str(dt.datetime.now())+'\n')
+        study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
                                             function_name="preprocessing", slurm=False, slurm_timeout=None, cpus=None,
                                             slurm_mem=None)
-            write(logs,'✅ [Myemouse_preproc] has ended successfuly '+str(dt.datetime.now())+'\n')
+        write(logs,'✅ [Myemouse_preproc] has ended successfuly '+str(dt.datetime.now())+'\n')
           
     # Microstructural metrics
     dic_path = '/Volumes/LaCie/Thesis/fingerprinting/dictionary_fixed_rad_dist_Bruker_StLuc.mat'
