@@ -69,7 +69,7 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     brainExtraction_path = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/brainExtraction/'
     mask_path=folder_path + '/subjects/' + patient_path + '/masks/'
 
-
+    imain_tot = fdwi
     
     
     import json
@@ -119,7 +119,7 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
             
         else:
             data, affine = load_nifti(denoisingMPPCA_path + '/' + patient_path + '_mppca.nii.gz')
-            
+        imain_tot = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/denoisingMPPCA/' + patient_path + '_mppca.nii.gz'    
             
                 
  
@@ -177,7 +177,7 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
             bvals, bvecs = read_bvals_bvecs(fbval, fbvec)
             gtab = gradient_table(bvals, bvecs, b0_threshold=65)
             write(logs,'⏭ [Myemouse_preproc] Fast forwarding to brain extraction'+ str(dt.datetime.now())+'\n')
-
+        imain_tot = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/motionCorrection/' + patient_path + 'motionCorrected.nii.gz'
     
 
     #############################
@@ -191,15 +191,8 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
             print('begin Topup step')
             
             multiple_encoding=False
-            topup_log = open(folder_path + '/subjects/' + patient_path + "/dMRI/preproc/topup/topup_logs.txt", "a+")
+            #topup_log = open(folder_path + '/subjects/' + patient_path + "/dMRI/preproc/topup/topup_logs.txt", "a+")
             
-            if Motion_corr:
-                imain_tot = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/motionCorrection/' + patient_path + 'motionCorrected.nii.gz'
-            elif Denoising:
-                imain_tot = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/denoisingMPPCA/' + patient_path + '_mppca.nii.gz'
-            #else:
-                #imain_tot = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/bet/' + patient_path + '_mask.nii.gz'
-    
     
             with open(folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + 'index.txt') as f:
                 line = f.read()
