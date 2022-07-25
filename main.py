@@ -221,7 +221,19 @@ def link(Input, Out, nVol, subjectName,logs):
         f.write(str(nVol))
         f.close()
         shutil.copyfile(os.path.join(Input, "shell_index.txt"), os.path.join(Out,typeFolder,"shell_index.txt"))
-
+        
+        raw = Out.replace("Merge","raw/acqparams.txt")
+        f = open(raw,'r')
+        
+        acq = open(os.path.join(Out, typeFolder, "acqparams.txt"), "w")
+        acq.write(f.readline())
+        acq.close()
+        acq = open(os.path.join(Out, typeFolder, "reverse_encoding", "acqparams.txt"), "w")
+        acq.write(f.readline())
+        acq.close()
+        
+        f.close()
+        
     subjectPath = os.path.join(Input,subjectName)
     shutil.copyfile(subjectPath + ".nii.gz", os.path.join(Out,typeFolder, subjectName + ".nii.gz"))
     shutil.copyfile(subjectPath + ".bvec", os.path.join(Out, typeFolder, subjectName + ".bvec"))

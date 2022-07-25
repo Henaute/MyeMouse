@@ -11,6 +11,7 @@ import math
 import time
 import shutil
 import elikopy
+import subprocess
 import numpy as np
 import datetime as dt
 import nibabel as nib
@@ -41,7 +42,7 @@ from elikopy.utils import makedir
 
 denoised = None
 
-def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, Mask_off=True):
+def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, Mask_off=True, Topup=True):
     #variable to skip prossess
     logs=folder_path.split('/Merge',1)[0]+'/logs.txt'
     global denoised
@@ -164,6 +165,112 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
         bvals, bvecs = read_bvals_bvecs(fbval, fbvec)
         gtab = gradient_table(bvals, bvecs, b0_threshold=65)
         write(logs,'⏭ [Myemouse_preproc] Fast forwarding to brain extraction'+ str(dt.datetime.now())+'\n')
+
+    
+
+    #############################
+    ###      Topup step       ###
+    #############################
+    
+    if Topup:
+        print('Topup step')
+        
+        multiple_encoding=False
+        topup_log = open(folder_path + '/subjects/' + patient_path + "/dMRI/preproc/topup/topup_logs.txt", "a+")
+        
+        if Motion_corr:
+            imain_tot = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/motionCorrection/' + patient_path + 'motionCorrected.nii.gz'
+        elif Denoising:
+            imain_tot = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/denoisingMPPCA/' + patient_path + '_mppca.nii.gz'
+        #else:
+            #imain_tot = folder_path + '/subjects/' + patient_path + '/dMRI/preproc/bet/' + patient_path + '_mask.nii.gz'
+
+        topup_path = folder_path + '/subjects/' + patient_path + "/dMRI/preproc/topup"
+
+        with open(folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + 'index.txt') as f:
+            line = f.read()
+            line = " ".join(line.split())
+            topup_index = [int(s) for s in line.split(' ')]
+
+        with open(folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + 'acqparams.txt') as f:
+            topup_acq = [[float(x) for x in line2.split()] for line2 in f]
+
+        #Find all the bo to extract.
+        current_index = 0
+        all_index ={}
+        i=1
+        roi=[]
+        for ind in topup_index:
+            if ind!=current_index and ind not in all_index:
+                roi.append(i)
+                fslroi = "fslroi " + imain_tot + " " + topup_path + "/b0_"+str(i)+".nii.gz "+str(i-1)+" 1"
+                process = subprocess.Popen(fslroi, universal_newlines=True, shell=True, stdout=topup_log, stderr=subprocess.STDOUT)
+                
+                output, error = process.communicate()
+                print("B0 of index" + str(i) + " extracted!")
+            current_index=ind
+            all_index[ind] = all_index.get(ind,0) + 1
+            i=i+1
+
+        #Merge b0
+        if len(roi) == 1:
+            shutil.copyfile(topup_path + "/b0_"+str(roi[0])+".nii.gz", topup_path + "/b0.nii.gz")
+        else:
+            roi_to_merge=""
+            for r in roi:
+                roi_to_merge = roi_to_merge + " " + topup_path +"/b0_" + str(r) + ".nii.gz"
+            print("The following roi will be merged: " + roi_to_merge)
+            cmd = "fslmerge -t " + topup_path + "/b0.nii.gz" + roi_to_merge
+            process = subprocess.Popen(cmd, universal_newlines=True, shell=True, stdout=topup_log, stderr=subprocess.STDOUT)
+            output, error = process.communicate()
+
+        #Check if multiple or single encoding direction
+        curr_x=0.0
+        curr_y=0.0
+        curr_z=0.0
+        first=True
+        print("Topup acq parameters:")
+        print(topup_acq)
+        for acq in topup_acq:
+            if not first and (curr_x!=acq[1] or curr_y!=acq[2] or curr_z!=acq[3]):
+                multiple_encoding=True
+            first=False
+            curr_x=acq[1]
+            curr_y=acq[2]
+            curr_z=acq[3]
+            
+        core_count = 1
+
+        if multiple_encoding :
+            makedir(topup_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
+            #f = open(folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", "a+")
+            #f.write("[" + log_prefix + "] " + datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S") + ": Patient %s \n" % p + " has multiple direction of gradient encoding, launching topup directly ")
+            topupConfig = 'b02b0.cnf' #if topupConfig is None else topupConfig
+            bashCommand = 'export OMP_NUM_THREADS='+str(core_count)+' ; export FSLPARALLEL='+str(core_count)+' ; topup --imain="' + topup_path + '/b0.nii.gz" --config="' + topupConfig + '" --datain="' + folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + 'acqparams.txt" --out="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_estimate" --fout="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_fout_estimate" --iout="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_iout_estimate" --verbose'
+            bashcmd = bashCommand.split()
+            #print("[" + log_prefix + "] " + datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S") + ": Topup launched for patient %s \n" % p + " with bash command " + bashCommand)
+
+            #f.write("[" + log_prefix + "] " + datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S") + ": Topup launched for patient %s \n" % p + " with bash command " + bashCommand)
+            #f.close()
+
+            process = subprocess.Popen(bashCommand, universal_newlines=True, shell=True, stdout=topup_log, stderr=subprocess.STDOUT)
+            # wait until topup finish
+            output, error = process.communicate()
+
+        inindex=""
+        first=True
+        for r in roi:
+            if first:
+                inindex = str(topup_index[r-1])
+                #first = False
+            else:
+                inindex = inindex + "," + str(topup_index[r-1])
+
+        bashCommand2 = 'applytopup --imain="' + imain_tot + '" --inindex='+inindex+' --datain="' + folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + 'acqparams.txt" --topup="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_estimate" --out="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_corr"'
+
+        process2 = subprocess.Popen(bashCommand2, universal_newlines=True, shell=True, stdout=topup_log, stderr=subprocess.STDOUT)
+        # wait until apply topup finish
+        output, error = process2.communicate()
     
     #############################
     ### Brain extraction step ###
