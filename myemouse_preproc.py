@@ -7,6 +7,7 @@ Created on Thu May 12 15:55:09 2022
 """
 
 import os
+import sys
 import math
 import time
 import shutil
@@ -38,7 +39,28 @@ from dipy.align.transforms import (TranslationTransform3D,
 
 from skimage.morphology import binary_dilation,binary_erosion
 from threading import Thread
-from elikopy.utils import makedir
+
+
+
+def create_folder(path,logs,mode=0o777,replace=True):
+    if replace:
+        if os.path.exists(path):
+            try:
+                shutil.rmtree(path)
+                write(logs,'♻️ You have chosen to replace the existing directory. The old directory has been removed'+'\n')
+            except:
+                write(logs,'⚠️⚠️⚠️ WARNING!!   '+path+' could not be removed from your computer!! Try deleting it manually')
+                sys.exit()
+        os.mkdir(path)
+        os.chmod(path,mode)
+        write(logs,'✅ New directory has been created at '+ path+' with mode '+ str(mode) +'\n')
+    else:
+        write(logs,'⏭ You have chosen not to replace '+path+'\n')
+        if not os.path.exists(path):
+            os.mkdir(path)
+            os.chmod(path,mode)
+            write(logs,'✅ New directory has been created at '+ path+' with mode '+ str(mode) +'\n')
+
 
 denoised = None
 
@@ -47,7 +69,6 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
     logs=folder_path.split('/Merge',1)[0]+'/logs.txt'
     global denoised
 
-    log_prefix = "[Myemouse Preproc]"
     write(logs,'✅ [Myemouse Preproc] started. Launching preprocessing on data  '+str(dt.datetime.now())+'\n')
 
     fdwi = folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + patient_path + '_raw_dmri.nii.gz'
@@ -86,8 +107,8 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
         if not(os.path.isdir(denoisingMPPCA_path)) or not(os.path.isfile(denoisingMPPCA_path + '/' + patient_path + '_mppca.nii.gz')):
         
             print("Start of denoising step", patient_path)
-            makedir(denoisingMPPCA_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt",log_prefix)
-    
+            create_folder(denoisingMPPCA_path, logs, replace=False)
+            
             write(logs,'✅ [Myemouse Preproc] Denoising sequence launched '+str(dt.datetime.now())+'\n')
             shell_index = []
             with open(os.path.join(folder_path, "data_" + str(subj_type[patient_path]),"shell_index.txt"), "r") as f:
@@ -133,8 +154,8 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
         if not(os.path.isdir(motionCorr_path)) or not(os.path.isfile(motionCorr_path + patient_path + '_motionCorrected.nii.gz')) or not(os.path.isfile(motionCorr_path + patient_path + '_motionCorrected.bval')) or not(os.path.isfile(motionCorr_path + patient_path + '_motionCorrected.bvec')):
     
             print("Motion correction step for subject ", patient_path)
-            makedir(motionCorr_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
-    
+            create_folder(motionCorr_path, logs, replace=False)
+           
             write(logs,'✅ [Myemouse Preproc] Motion correction step for subject '+patient_path+' '+str(dt.datetime.now())+'\n')
             reg_affines_precorrection = []
             static_precorrection = data[..., 0]
@@ -191,7 +212,7 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
             print('begin Topup step')
             
             multiple_encoding=False
-            #topup_log = open(folder_path + '/subjects/' + patient_path + "/dMRI/preproc/topup/topup_logs.txt", "a+")
+            topup_log = open(folder_path + '/subjects/' + patient_path + "/dMRI/preproc/topup/topup_logs.txt", "a+")
             
     
             with open(folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + 'index.txt') as f:
@@ -249,21 +270,14 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
             core_count = 1
     
             if multiple_encoding :
-                makedir(topup_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
-                #f = open(folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", "a+")
-                #f.write("[" + log_prefix + "] " + datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S") + ": Patient %s \n" % p + " has multiple direction of gradient encoding, launching topup directly ")
+                create_folder(topup_path, logs, replace=False)
                 topupConfig = 'b02b0.cnf' #if topupConfig is None else topupConfig
                 bashCommand = 'export OMP_NUM_THREADS='+str(core_count)+' ; export FSLPARALLEL='+str(core_count)+' ; topup --imain="' + topup_path + '/b0.nii.gz" --config="' + topupConfig + '" --datain="' + folder_path + '/subjects/' + patient_path + '/dMRI/raw/' + 'acqparams.txt" --out="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_estimate" --fout="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_fout_estimate" --iout="' + folder_path + '/subjects/' + patient_path + '/dMRI/preproc/topup/' + patient_path + '_topup_iout_estimate" --verbose'
                 bashcmd = bashCommand.split()
-                #print("[" + log_prefix + "] " + datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S") + ": Topup launched for patient %s \n" % p + " with bash command " + bashCommand)
-    
-                #f.write("[" + log_prefix + "] " + datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S") + ": Topup launched for patient %s \n" % p + " with bash command " + bashCommand)
-                #f.close()
-    
                 process = subprocess.Popen(bashCommand, universal_newlines=True, shell=True, stdout=topup_log, stderr=subprocess.STDOUT)
                 # wait until topup finish
                 output, error = process.communicate()
-    
+                
             inindex=""
             first=True
             for r in roi:
@@ -278,6 +292,8 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
             process2 = subprocess.Popen(bashCommand2, universal_newlines=True, shell=True, stdout=topup_log, stderr=subprocess.STDOUT)
             # wait until apply topup finish
             output, error = process2.communicate()
+            
+            topup_log.close()
     
     #############################
     ### Brain extraction step ###
@@ -287,11 +303,10 @@ def preprocessing(folder_path, patient_path, Denoising=True, Motion_corr=True, M
         if not(os.path.isdir(brainExtraction_path)) or not(os.path.isfile(brainExtraction_path + patient_path + '_Extracted_brain.nii.gz')):
             print('Brain extraction step')
             write(logs,'✅ [Myemouse_preproc] strating brain extraction step'+ str(dt.datetime.now())+'\n')
-    
-        
-            makedir(brainExtraction_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt", log_prefix)
-            makedir(mask_path, folder_path + '/subjects/' + patient_path + "/dMRI/preproc/preproc_logs.txt",log_prefix)
             
+            create_folder(brainExtraction_path, logs, replace=False)
+            create_folder(mask_path, logs, replace=False)
+
             # created a brain for designing a mask (sum of all shells)
             b0final=np.zeros(data.shape[:-1])
             for i in range(data.shape[-1]):
@@ -405,7 +420,7 @@ def affine_reg(static, static_grid2world, moving, moving_grid2world, work='3D'):
                                       starting_affine=starting_affine)
         
         transformed = translation.transform(moving)
-        save_nifti('/Users/nicolasbioul/Desktop/translation.nii.gz', transformed, moving_grid2world)
+        #save_nifti('/Users/nicolasbioul/Desktop/translation.nii.gz', transformed, moving_grid2world)
         
         
         transform = RotationTransform3D()
@@ -416,7 +431,7 @@ def affine_reg(static, static_grid2world, moving, moving_grid2world, work='3D'):
                                  starting_affine=starting_affine)
         
         transformed = rotation.transform(moving)
-        save_nifti('/Users/nicolasbioul/Desktop/rotation.nii.gz', transformed, moving_grid2world)
+        #save_nifti('/Users/nicolasbioul/Desktop/rotation.nii.gz', transformed, moving_grid2world)
         
         transform = RigidTransform3D()
         params0 = None
@@ -425,7 +440,7 @@ def affine_reg(static, static_grid2world, moving, moving_grid2world, work='3D'):
                                 static_grid2world, moving_grid2world,
                                 starting_affine=starting_affine)
         transformed = rigid.transform(moving)
-        save_nifti('/Users/nicolasbioul/Desktop/rigid.nii.gz', transformed, moving_grid2world)
+        #save_nifti('/Users/nicolasbioul/Desktop/rigid.nii.gz', transformed, moving_grid2world)
 
         
         transform = AffineTransform3D()
@@ -436,7 +451,7 @@ def affine_reg(static, static_grid2world, moving, moving_grid2world, work='3D'):
                                  starting_affine=starting_affine)
         
         transformed = affine.transform(moving)
-        save_nifti('/Users/nicolasbioul/Desktop/affine.nii.gz', transformed, moving_grid2world)
+        #save_nifti('/Users/nicolasbioul/Desktop/affine.nii.gz', transformed, moving_grid2world)
 
         
         return transformed, affine

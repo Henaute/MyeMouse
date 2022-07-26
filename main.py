@@ -11,7 +11,7 @@ import re
 import shutil
 import subprocess
 
-
+"""
 def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
     
@@ -35,7 +35,7 @@ for name in imports:
             sys.exit()
     
 import easygui as egui
-
+"""
 import nibabel as nib
 import numpy as np
 from bruker2nifti.converter import Bruker2Nifti
@@ -46,29 +46,7 @@ from myemouse_preproc import write
 from myemouse_preproc import affine_reg
 from dipy.io.image import load_nifti, save_nifti
 from dipy.viz import regtools
-    
-def create_folder(path,logs,mode=0o777,replace=True):
-    if replace:
-        if os.path.exists(path):
-            try:
-                shutil.rmtree(path)
-                write(logs,'♻️ You have chosen to replace the existing directory. The old directory has been removed'+'\n')
-            except:
-                write(logs,'⚠️⚠️⚠️ WARNING!!   '+BaseOUT+' could not be removed from your computer!! Try deleting it manually')
-                sys.exit()
-        os.mkdir(path)
-        if mode!=0o777:
-            os.chmod(path,mode)
-        write(logs,'✅ New directory has been created at '+ path+' with mode '+ str(mode) +'\n')
-    else:
-        write(logs,'⏭ You have chosen not to replace '+path+'\n')
-        if not os.path.exists(path):
-            os.mkdir(path)
-            if mode!=0o777:
-                os.chmod(path,mode)
-            write(logs,'✅ New directory has been created at '+ path+' with mode '+ str(mode) +'\n')
-
-from myemouse_preproc import preprocessing
+from myemouse_preproc import preprocessing,create_folder
 
 def convertAndMerge(Input, Output, subject,logs):
     # instantiate a converter
@@ -301,13 +279,14 @@ if __name__ == '__main__':
     logs=Base+'/logs.txt'
     f.write('Program launched at'+ str(dt.datetime.now())+'\n')
     f.close()
+    os.chmod(Base+'/logs.txt',0o777)
 
     replace = vars(options)['replace']
     if replace in ['False','false','F','f','Flase','flase','Fasle','fasle','Faux','faux','Non','non','no','No','N','n']:
         replace = False
         write(logs,'⏭ You have chosen not to replace the data\n')
     else:
-        replace = True
+        replace = False
         write(logs,'♻️ You have chosen to replace the data\n')
          
     preproc = vars(options)['preprocessing']
@@ -416,18 +395,18 @@ if __name__ == '__main__':
     if preproc:
 
         for dirr in os.listdir(ProcIN+'/subjects'):
-            if os.path.isdir(ProcIN+'/subjects/'+dirr) and os.path.exists(ProcIN+'/subjects/'+dirr+'/dMRI/preproc'):
-               try:
-                   create_folder(ProcIN+'/subjects/'+dirr+'/dMRI/preproc',logs,True)
-                   write(logs,ProcIN+'/subjects/'+dirr+'/dMRI/preproc'+' was removed from your computer 🗑\n')
-                   
-               except FileNotFoundError:
-                   write(logs,'⚠️⚠️⚠️ WARNING!!   '+ProcIN+'/subjects/'+dirr+'/dMRI/preproc'+' could not be removed from your computer!! Try deleting it manually \n')
-                   
+            if os.path.isdir(ProcIN+'/subjects/'+dirr):
+                try:
+                    create_folder(ProcIN+'/subjects/'+dirr+'/dMRI/preproc',logs,mode=0o777,replace=False)
+                    write(logs,ProcIN+'/subjects/'+dirr+'/dMRI/preproc'+' was removed from your computer 🗑\n')
+                    
+                except FileNotFoundError:
+                    write(logs,'⚠️⚠️⚠️ WARNING!!   '+ProcIN+'/subjects/'+dirr+'/dMRI/preproc'+' could not be removed from your computer!! Try deleting it manually \n')
+                    
                                                     
         write(logs,'✅ [Myemouse_preproc] has been launched '+str(dt.datetime.now())+'\n')
         study.patientlist_wrapper(preprocessing, {}, folder_path=ProcIN, patient_list_m=None, filename="myemouse_preproc",
-                                        function_name="preprocessing", slurm=True, slurm_timeout="06:00:00", cpus=8,
+                                        function_name="preprocessing", slurm=False, slurm_timeout="06:00:00", cpus=8,
                                         slurm_mem=1024)
         write(logs,'✅ [Myemouse_preproc] has ended successfuly '+str(dt.datetime.now())+'\n')
         
