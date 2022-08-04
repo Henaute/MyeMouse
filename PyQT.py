@@ -53,7 +53,7 @@ class Nifti():
         self.current = np.ones(t)  
         self.slice = 0
         self.nvol = 0
-              
+        print(self.work)
         #self.Max = np.amax(self.data)
         
         if self.work ==3:
@@ -307,6 +307,10 @@ class Rotor(QWidget):
 
 
 class MainWindow(QMainWindow):
+    
+    def structure(self):
+        
+        pass
     
     
     def clickBox1(self,state):     
@@ -949,10 +953,12 @@ class MainWindow(QMainWindow):
         layout1.setColumnStretch(0,1)
         layout1.setColumnStretch(1,3)
                
-
-        widget = QWidget()
-        widget.setLayout(layout1)
-        self.setCentralWidget(widget)
+        
+        self.widget = QWidget()
+        self.widget.setLayout(layout1)
+        self.setCentralWidget(self.widget)
+        
+        
 
 app = QApplication(sys.argv)
 window = MainWindow()
