@@ -769,7 +769,7 @@ class MainWindow(QMainWindow):
             
             tempo[self.im2[:,:]!=[0,0,0]] = self.im2[self.im2[:,:]!=[0,0,0]]
             
-            self.final[X1M2:X2M2,Y1M2:Y2M2,:] = self.im2
+            self.final[X1M2:X2M2,Y1M2:Y2M2,:] = tempo
 
                     
         elif self.bool1 == True and self.bool2 == True:
