@@ -48,6 +48,9 @@ class Nifti():
         self.work = len(self.data.shape)
         self.current = np.ones((self.data.shape[0],self.data.shape[1],3))
         self.nVol=0
+        self.rotX=0
+        self.rotY=0
+        self.rotZ=0
 
         if self.work==3:
             self.z = data.shape[-1]
@@ -69,25 +72,64 @@ class Nifti():
     def update(self,rotX,rotY,rotZ,z,vol):
         z=int(z)
         vol=int(vol)
-        
-        if self.work==4 and vol!=0:
-            self.rotate=self.data[:,:,:,vol]
+
+        if self.work==4:
+            self.rotate=np.copy(self.data[:,:,:,vol])
         elif self.work==3:
-            self.rotate=self.data
+            self.rotate=np.copy(self.data)
+            
+        if rotZ!=0:
+            self.rotate=ndimage.rotate(self.rotate,rotZ,reshape=True)
+            
         if rotX!=0:
             self.rotate=ndimage.interpolation.rotate(self.rotate,rotX,(1,2),reshape=True)
-        if rotY!=0:
+            
+        if rotY !=0:
             self.rotate=ndimage.interpolation.rotate(self.rotate,rotY,(0,2),reshape=True)
-        if rotZ!=0:
-            self.rotate=ndimage.interpolation.rotate(self.rotate,rotZ,(0,1),reshape=True)
+        
+            
+        self.rotX=rotX
+        self.rotY=rotY
+        self.rotZ=rotZ
+
         self.z=self.rotate.shape[-1]
-        self.current = np.ones((self.rotate.shape[0],self.rotate.shape[1],3))
+        if z>self.z:
+            self.current = np.ones((self.rotate.shape[0],self.rotate.shape[1],3))
+            self.current[:,:,0] = np.array(self.rotate[:,:,self.z]/np.amax(self.rotate[:,:,self.z])*255,dtype=np.uint8)
+            self.current[:,:,1] = np.array(self.rotate[:,:,self.z]/np.amax(self.rotate[:,:,self.z])*255,dtype=np.uint8)
+            self.current[:,:,2] = np.array(self.rotate[:,:,self.z]/np.amax(self.rotate[:,:,self.z])*255,dtype=np.uint8)
+
+        else:
+            self.current = np.ones((self.rotate.shape[0],self.rotate.shape[1],3))
+            self.current[:,:,0] = np.array(self.rotate[:,:,z]/np.amax(self.rotate[:,:,z])*255,dtype=np.uint8)
+            self.current[:,:,1] = np.array(self.rotate[:,:,z]/np.amax(self.rotate[:,:,z])*255,dtype=np.uint8)
+            self.current[:,:,2] = np.array(self.rotate[:,:,z]/np.amax(self.rotate[:,:,z])*255,dtype=np.uint8)
+
+    def updateSlice(self,z):
         self.current[:,:,0] = np.array(self.rotate[:,:,z]/np.amax(self.rotate[:,:,z])*255,dtype=np.uint8)
         self.current[:,:,1] = np.array(self.rotate[:,:,z]/np.amax(self.rotate[:,:,z])*255,dtype=np.uint8)
         self.current[:,:,2] = np.array(self.rotate[:,:,z]/np.amax(self.rotate[:,:,z])*255,dtype=np.uint8)
         
+    def reset(self):
+        self.current = np.ones((self.data.shape[0],self.data.shape[1],3))
+        self.nVol=0
+        self.rotX=0
+        self.rotY=0
+        self.rotZ=0
 
-          
+        if self.work==3:
+            self.z = self.data.shape[-1]
+            self.rotate = np.copy(self.data)
+            
+        elif self.work==4:
+            self.z = self.data.shape[-2]
+            self.nVol = self.data.shape[-1]
+            self.rotate=np.copy(self.data[:,:,:,0])
+        
+        self.current[:,:,0] = np.array(self.rotate[:,:,0]/np.amax(self.rotate[:,:,0])*255,dtype=np.uint8)
+        self.current[:,:,1] = np.array(self.rotate[:,:,0]/np.amax(self.rotate[:,:,0])*255,dtype=np.uint8)
+        self.current[:,:,2] = np.array(self.rotate[:,:,0]/np.amax(self.rotate[:,:,0])*255,dtype=np.uint8)
+
 
 class ComboBox(QWidget):
 
@@ -149,7 +191,7 @@ class Boutton(QWidget):
         
         self.setLayout(self.bou)
         
-class Volume(QWidget):
+class SpinBox(QWidget):
     
     def __init__(self, nom, x, y, parent):
         super().__init__()
@@ -157,16 +199,31 @@ class Volume(QWidget):
         self.vbox = QVBoxLayout()
         self.spin = QDoubleSpinBox()
         self.spin.setRange(x,y)
-        self.spin.setDecimals(0)
-        #self.spin.setSuffix(" nVol")
-        #self.spin.setDisplayIntegerBase(10)
-        #self.spin.setValue(0)
-        #self.spin.setTickInterval(1)
-    
-        self.spin.valueChanged.connect(parent.nVolume)
-        #self.spin.valueChanged.connect(self.updateLabel)
-
-    
+        
+        if 'Volume' in self.name:
+            self.spin.setDecimals(0)
+            self.spin.valueChanged.connect(parent.nVolume)
+        
+        elif "rotation Nifti x" in self.name:
+            self.spin.valueChanged.connect(parent.RotateNx)
+            self.spin.setSuffix("°")
+            self.spin.setDecimals(1)
+        
+        elif "rotation Nifti y" in self.name:
+            self.spin.valueChanged.connect(parent.RotateNy)
+            self.spin.setSuffix("°")
+            self.spin.setDecimals(1)
+        
+        elif "rotation Nifti z" in self.name:
+            self.spin.valueChanged.connect(parent.RotateNz)
+            self.spin.setSuffix("°")
+            self.spin.setDecimals(1)
+            
+        elif "rotation TIFF" in self.name:
+            self.spin.valueChanged.connect(parent.RotateTx)
+            self.spin.setSuffix("°")
+            self.spin.setDecimals(1)
+        
         self.label = QLabel(nom.format(0), self)
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label.setFixedSize(120, 15)
@@ -272,48 +329,6 @@ class Curseur(QWidget):
         
         self.label.setText(self.name.format(round(1.03**(value-25),2)))
 
-
-class Rotor(QWidget):
-    
-    def __init__(self, nom, parent):
-        super().__init__()
-        
-        self.name = nom
-        self.box = QVBoxLayout()
-        self.sld = QDial()
-        self.sld.setRange(0, 359)
-        
-        if "rotation Nifti x" in self.name:
-            self.sld.valueChanged.connect(parent.RotateNx)
-            self.sld.valueChanged.connect(self.updateLabel)
-            
-        elif "rotation Nifti y" in self.name:
-            self.sld.valueChanged.connect(parent.RotateNy)
-            self.sld.valueChanged.connect(self.updateLabel)
-            
-        elif "rotation Nifti z" in self.name:
-            self.sld.valueChanged.connect(parent.RotateNz)
-            self.sld.valueChanged.connect(self.updateLabel)
-            
-        elif "rotation TIFF" in self.name:
-            self.sld.valueChanged.connect(parent.RotateTx)
-            self.sld.valueChanged.connect(self.updateLabel)
-        
-        self.label = QLabel(nom.format(0), self)
-        #self.label.setAligment(Qt.AlignCenter | Qt.AlignVCenter)
-        
-        self.box.addWidget(self.label)
-        self.box.addWidget(self.sld)
-        
-        self.setLayout(self.box)
-        
-    def updateLabel(self,value):
-        
-        self.label.setText(self.name.format(value))
-        
-    
-
-
 class MainWindow(QMainWindow):
 
         
@@ -393,7 +408,7 @@ class MainWindow(QMainWindow):
         affine[1,3] += result[1]
         affine[2,3] += result[2]
     
-        """
+        
         # Correction de la Rotation par Translation
         
         vec2 = np.zeros(3)
@@ -452,7 +467,7 @@ class MainWindow(QMainWindow):
         MatRot = MatRotx @ MatRoty @ MatRotz
         
         affine[:3,:3] =  affine[:3,:3] @ MatRot
-        
+        """
         out = nib.Nifti1Image(array, affine)
         if not nom.endswith('.nii.gz'):
             nom+='.nii.gz'
@@ -476,7 +491,7 @@ class MainWindow(QMainWindow):
         self.Zoomer2.deleteLater()
         self.Zoomer2 = Curseur("zoom TIFF: x{0}", 0, 50, 25, 1, self)
         self.volume.deleteLater()       
-        self.volume = Volume("Volume number", 0, self.Nifti.nVol-1, self)
+        self.volume = SpinBox("Volume number", 0, self.Nifti.nVol-1, self)
             
         
         self.x1 = 0
@@ -497,13 +512,13 @@ class MainWindow(QMainWindow):
         self.rotNiftiZ = 0
         self.rotTIFF = 0
         self.rotateNiftiX.deleteLater()
-        self.rotateNiftiX = Rotor("rotation Nifti x :{0}°",self)
+        self.rotateNiftiX = SpinBox("rotation Nifti x",0,359,self)
         self.rotateNiftiY.deleteLater()
-        self.rotateNiftiY = Rotor("rotation Nifti y :{0}°",self)
+        self.rotateNiftiY = SpinBox("rotation Nifti y",0,359,self)
         self.rotateNiftiZ.deleteLater()
-        self.rotateNiftiZ = Rotor("rotation Nifti z :{0}°",self)
+        self.rotateNiftiZ = SpinBox("rotation Nifti z",0,359,self)
         self.rotateTIFF.deleteLater()
-        self.rotateTIFF = Rotor("rotation TIFF :{0}°",self)
+        self.rotateTIFF = SpinBox("rotation TIFF",0,359,self)
         
         # Nifti layout
         self.layout3.addWidget(self.Zoomer1,0,0)
@@ -523,7 +538,7 @@ class MainWindow(QMainWindow):
         self.layout4.addWidget(self.affY,2,1)
         self.layout4.addWidget(self.rotateTIFF,3,0)
         self.layout4.addWidget(self.Flip,3,1)
-        self.Nifti.update(self.rotNiftiX,self.rotNiftiY,self.rotNiftiZ,self.z1, self.nVol)
+        self.Nifti.reset()
         self.IMG1 = self.Nifti.current
         
         self.changed = True
@@ -641,7 +656,7 @@ class MainWindow(QMainWindow):
     def Slice(self,value):
         
         self.z1 = value
-        self.Nifti.update(self.rotNiftiX,self.rotNiftiY,self.rotNiftiZ,self.z1, self.nVol)
+        self.Nifti.updateSlice(self.z1)
         self.IMG1 = self.Nifti.current
         self.changed = False
         self.visual()
@@ -670,7 +685,7 @@ class MainWindow(QMainWindow):
             self.SliderZ1 = Curseur("z axis Nifti :{0}", 0, self.Nifti.z-1, 0, 1, self)
             
             self.volume.deleteLater()
-            self.volume = Volume("Volume number", 0, self.Nifti.nVol-1, self)
+            self.volume = SpinBox("Volume number", 0, self.Nifti.nVol-1, self)
             
             self.layout3.addWidget(self.volume,0,1)
             self.layout3.addWidget(self.SliderZ1,3,0)
@@ -771,7 +786,9 @@ class MainWindow(QMainWindow):
             
             self.SliderX1 = Curseur("x axis Nifti: {0} px", -(y2//2) +1, y2//2 -1, self.x1, 1, self)
             self.SliderY1 = Curseur("y axis Nifti: {0} px", -(x2//2) +1, x2//2 -1, self.y1, 1, self)
-            self.SliderZ1 = Curseur("z axis Nifti :{0} px", 0, self.Nifti.z-1, self.z1, 1, self)
+            if self.z1>self.Nifti.z-1:
+                self.z1=self.Nifti.z-1//2
+            self.SliderZ1 = Curseur("z axis Nifti: {0} px", 0, self.Nifti.z-1, self.z1, 1, self)
             
             self.layout3.addWidget(self.SliderX1,1,0)
             self.layout3.addWidget(self.SliderY1,2,0)
@@ -788,6 +805,7 @@ class MainWindow(QMainWindow):
             self.layout4.addWidget(self.SliderY2,2,0)
             
             self.changed = False
+            
         else:
             self.im1 = cv2.resize(self.IMG1, None, fx = self.zoomALL*self.zoomNifti ,fy = self.zoomALL*self.zoomNifti)
 
@@ -859,7 +877,7 @@ class MainWindow(QMainWindow):
         
         #label = QLabel(self)
         IMG = QPixmap.fromImage(qt_image)
-
+        IMG.detach()
         self.output.setPixmap(IMG)
         
     def LayoutBuilder(self):
@@ -939,11 +957,11 @@ class MainWindow(QMainWindow):
         self.IMG1 = np.ones((500,500,3))*236
         self.IMG2 = np.ones((500,500,3))*236
         
-        self.im1 = np.ones((1,1,3))*236
-        self.im2 = np.ones((1,1,3))*236
-        self.final = np.ones((1,1,3))*236
+        self.im1 = np.ones((11,11,11))*236
+        self.im2 = np.ones((11,11,11))*236
+        self.final = np.ones((11,11,11))*236
           
-        self.Nifti=Nifti(self.im1,np.eye(4))
+        self.Nifti=Nifti(np.ones((11,11,11))*236,np.eye(4))
         
         self.bool1 = False
         self.bool2 = False
@@ -969,11 +987,11 @@ class MainWindow(QMainWindow):
         self.y2 = 0
         self.z1 = 0
         
-        self.SliderX1 = Curseur("x axis Nifti :{0}", 0, 20, 10, 1, self)
-        self.SliderY1 = Curseur("y axis Nifti :{0}", 0, 20, 10, 1, self)
-        self.SliderX2 = Curseur("x axis TIFF :{0}", 0, 20, 10, 1, self)
-        self.SliderY2 = Curseur("y axis TIFF :{0}", 0, 20, 10, 1, self)
-        self.SliderZ1 = Curseur("z axis Nifti :{0}", 0, 20, 0, 1, self)
+        self.SliderX1 = Curseur("x axis Nifti :{0}", 0, 10, 5, 1, self)
+        self.SliderY1 = Curseur("y axis Nifti :{0}", 0, 10, 5, 1, self)
+        self.SliderX2 = Curseur("x axis TIFF :{0}", 0, 10, 5, 1, self)
+        self.SliderY2 = Curseur("y axis TIFF :{0}", 0, 10, 5, 1, self)
+        self.SliderZ1 = Curseur("z axis Nifti :{0}", 0, 10, 5, 1, self)
         
         self.affix = 1
         self.affiy = 1
@@ -987,15 +1005,15 @@ class MainWindow(QMainWindow):
         self.rotTIFF = 0
 
         
-        self.rotateNiftiX = Rotor("rotation Nifti x :{0}°",self)
-        self.rotateNiftiY = Rotor("rotation Nifti y :{0}°",self)
-        self.rotateNiftiZ = Rotor("rotation Nifti z :{0}°",self)
-        self.rotateTIFF = Rotor("rotation TIFF :{0}°",self)
+        self.rotateNiftiX = SpinBox("rotation Nifti x :{0}°",0,359,self)
+        self.rotateNiftiY = SpinBox("rotation Nifti y :{0}°",0,359,self)
+        self.rotateNiftiZ = SpinBox("rotation Nifti z :{0}°",0,359,self)
+        self.rotateTIFF = SpinBox("rotation TIFF :{0}°",0,359,self)
 
         
         self.nVol = 0
 
-        self.volume = Volume("Volume number", 0, 10, self)
+        self.volume = SpinBox("Volume number", 0, 10, self)
         
         self.combo = True
         self.comboBox = ComboBox("ComboBox",self)
@@ -1016,108 +1034,10 @@ class MainWindow(QMainWindow):
         
         Img = Image.fromarray(self.final,mode='RGB')
         qt_image = ImageQt.ImageQt(Img)
-        
         #label = QLabel(self)
         IMG = QPixmap.fromImage(qt_image)
-
+        IMG.detach()
         self.output.setPixmap(IMG)
-        
-        """
-        
-        layout1 = QGridLayout()
-        self.layout2 = QGridLayout()
-        layout3 = QGridLayout()
-        layout4 = QGridLayout()
-
-        layout4.addWidget(boutton1,0,0)
-        layout4.addWidget(boutton2,0,1)
-        layout4.addWidget(boutton3,0,2)
-        
-        self.layout2.addWidget(self.load1,0,0)
-        self.layout2.addWidget(self.Check1,0,1)
-        
-        #self.layout2.addWidget(self.label,1,0)
-        self.layout2.addWidget(self.Zoomer1,1,0)
-        self.layout2.addWidget(self.volume,1,1)
-        
-        self.layout2.addWidget(self.SliderX1,2,0)
-        self.layout2.addWidget(self.rotateNiftiX,2,1)
-        self.layout2.addWidget(self.SliderY1,3,0)
-        self.layout2.addWidget(self.rotateNiftiY,3,1)
-        self.layout2.addWidget(self.SliderZ1,4,0)
-        self.layout2.addWidget(self.rotateNiftiZ,4,1)
-        
-        self.layout2.addWidget(self.load2,5,0)
-        self.layout2.addWidget(self.Check2,5,1)
-        self.layout2.addWidget(self.Zoomer2,6,0)
-        self.layout2.addWidget(self.SliderOpacity,6,1)
-        self.layout2.addWidget(self.SliderX2,7,0)
-        self.layout2.addWidget(self.affX,7,1)
-        self.layout2.addWidget(self.SliderY2,8,0)
-        self.layout2.addWidget(self.affY,8,1)
-        self.layout2.addWidget(self.rotateTIFFX,9,0)
-        self.layout2.addWidget(self.Flip,9,1)
-        
-        self.layout2.addWidget(self.ZoomerAll,10,0)
-        
-        layout3.addWidget(self.output,0,0)
-        layout3.addLayout(layout4,1,0)
-        
-        layout1.addLayout(self.layout2,0,0)
-        layout1.addLayout(layout3,0,1)
-        layout1.setColumnStretch(0,1)
-        layout1.setColumnStretch(1,3)
-
-        layout1 = QGridLayout()
-        self.layout2 = QGridLayout()
-        self.layout3 = QGridLayout()
-        layout4 = QGridLayout()
-        layout5 = QGridLayout()
-
-        layout5.addWidget(boutton1,0,0,1,2)
-
-        layout5.addWidget(boutton3,0,3,1,2)
-        
-        self.layout2.addWidget(self.load1,0,0)
-        self.layout2.addWidget(self.Check1,1,0)
-        self.layout2.addWidget(self.Zoomer1,2,0)
-        self.layout2.addWidget(self.volume,3,0)
-        self.layout2.addWidget(self.SliderX1,4,0)
-        self.layout2.addWidget(self.rotateNiftiX,5,0)
-        self.layout2.addWidget(self.SliderY1,6,0)
-        self.layout2.addWidget(self.rotateNiftiY,7,0)
-        self.layout2.addWidget(self.SliderZ1,8,0)
-        self.layout2.addWidget(self.rotateNiftiZ,9,0)
-        
-        self.layout3.addWidget(self.load2,0,0)
-        self.layout3.addWidget(self.Check2,1,0)
-        self.layout3.addWidget(self.Zoomer2,2,0)
-        self.layout3.addWidget(self.SliderOpacity,3,0)
-        self.layout3.addWidget(self.SliderX2,4,0)
-        self.layout3.addWidget(self.affX,5,0)
-        self.layout3.addWidget(self.SliderY2,6,0)
-        self.layout3.addWidget(self.affY,7,0)
-        self.layout3.addWidget(self.rotateTIFFX,8,0)
-        self.layout3.addWidget(self.Flip,10,0)
-        
-        layout5.addWidget(self.ZoomerAll,0,2)
-        
-        layout4.addWidget(self.output,0,0)
-        layout4.addLayout(layout5,1,0)
-        
-        layout1.addLayout(self.layout2,0,0)
-        layout1.addLayout(layout4,0,1)
-        layout1.addLayout(self.layout3,0,2)
-        layout1.setColumnStretch(0,1)
-        layout1.setColumnStretch(1,3)
-        layout1.setColumnStretch(2,1)
-               
-        
-        self.widget = QWidget()
-        self.widget.setLayout(layout1)
-        self.setCentralWidget(self.widget)
-        """
-        
         self.Base = QGridLayout()
         self.layout2 = QGridLayout()
         self.layout3 = QGridLayout()
