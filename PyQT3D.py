@@ -393,8 +393,8 @@ class MainWindow(QMainWindow):
         affine[1,3] += result[1]
         affine[2,3] += result[2]
     
-
-        # Coreection de la Rotation par Translation
+        """
+        # Correction de la Rotation par Translation
         
         vec2 = np.zeros(3)
         
@@ -417,6 +417,39 @@ class MainWindow(QMainWindow):
         MatRot[1,0] = np.sin(beta)
         MatRot[1,1] = np.cos(beta)
         MatRot[2,2] = 1
+        
+        affine[:3,:3] =  affine[:3,:3] @ MatRot
+        
+        """
+        
+        # A FAIRE : Correction de la Rotation par Translation
+        
+        # A FAIRE : gerer la rotation du TIFF par rapport au rotation du Nifti (décomposer la rotation 'self.rotTIFF' en une rotation en x,y,z dans la base du nifti )
+        
+        # Rotation 
+        
+        MatRotz = np.zeros((3,3))
+        MatRotz[0,0] = np.cos(self.rotNiftiZ)
+        MatRotz[0,1] = np.sin(self.rotNiftiZ)*(-1)
+        MatRotz[1,0] = np.sin(self.rotNiftiZ)
+        MatRotz[1,1] = np.cos(self.rotNiftiZ)
+        MatRotz[2,2] = 1
+        
+        MatRoty = np.zeros((3,3))
+        MatRoty[0,0] = np.cos(self.rotNiftiY)
+        MatRoty[2,0] = np.sin(self.rotNiftiY)*(-1)
+        MatRoty[0,2] = np.sin(self.rotNiftiY)
+        MatRoty[2,2] = np.cos(self.rotNiftiY)
+        MatRoty[1,1] = 1
+        
+        MatRotx = np.zeros((3,3))
+        MatRotx[1,1] = np.cos(self.rotNiftiX)
+        MatRotx[1,2] = np.sin(self.rotNiftiX)*(-1)
+        MatRotx[2,1] = np.sin(self.rotNiftiX)
+        MatRotx[2,2] = np.cos(self.rotNiftiX)
+        MatRotx[0,0] = 1
+        
+        MatRot = MatRotx @ MatRoty @ MatRotz
         
         affine[:3,:3] =  affine[:3,:3] @ MatRot
         
@@ -443,7 +476,7 @@ class MainWindow(QMainWindow):
         self.Zoomer2.deleteLater()
         self.Zoomer2 = Curseur("zoom TIFF: x{0}", 0, 50, 25, 1, self)
         self.volume.deleteLater()       
-        self.volume = Volume("Volume number", 0, self.Nifti.nvol-1, self)
+        self.volume = Volume("Volume number", 0, self.Nifti.nVol-1, self)
             
         
         self.x1 = 0
