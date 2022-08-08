@@ -71,8 +71,9 @@ class Nifti():
 
     def update(self,rotX,rotY,rotZ,z,vol):
         z=int(z)
+        old_z=self.z
         vol=int(vol)
-
+        
         if self.work==4:
             self.rotate=np.copy(self.data[:,:,:,vol])
         elif self.work==3:
@@ -93,17 +94,16 @@ class Nifti():
         self.rotZ=rotZ
 
         self.z=self.rotate.shape[-1]
-        if z>self.z:
-            self.current = np.ones((self.rotate.shape[0],self.rotate.shape[1],3))
-            self.current[:,:,0] = np.array(self.rotate[:,:,self.z]/np.amax(self.rotate[:,:,self.z])*255,dtype=np.uint8)
-            self.current[:,:,1] = np.array(self.rotate[:,:,self.z]/np.amax(self.rotate[:,:,self.z])*255,dtype=np.uint8)
-            self.current[:,:,2] = np.array(self.rotate[:,:,self.z]/np.amax(self.rotate[:,:,self.z])*255,dtype=np.uint8)
 
-        else:
-            self.current = np.ones((self.rotate.shape[0],self.rotate.shape[1],3))
-            self.current[:,:,0] = np.array(self.rotate[:,:,z]/np.amax(self.rotate[:,:,z])*255,dtype=np.uint8)
-            self.current[:,:,1] = np.array(self.rotate[:,:,z]/np.amax(self.rotate[:,:,z])*255,dtype=np.uint8)
-            self.current[:,:,2] = np.array(self.rotate[:,:,z]/np.amax(self.rotate[:,:,z])*255,dtype=np.uint8)
+        new=int(z*self.z/old_z)
+ 
+
+        self.current = np.ones((self.rotate.shape[0],self.rotate.shape[1],3))
+        self.current[:,:,0] = np.array(self.rotate[:,:,new]/np.amax(self.rotate[:,:,new])*255,dtype=np.uint8)
+        self.current[:,:,1] = np.array(self.rotate[:,:,new]/np.amax(self.rotate[:,:,new])*255,dtype=np.uint8)
+        self.current[:,:,2] = np.array(self.rotate[:,:,new]/np.amax(self.rotate[:,:,new])*255,dtype=np.uint8)
+        return new
+   
 
     def updateSlice(self,z):
         self.current[:,:,0] = np.array(self.rotate[:,:,z]/np.amax(self.rotate[:,:,z])*255,dtype=np.uint8)
@@ -468,6 +468,7 @@ class MainWindow(QMainWindow):
         
         affine[:3,:3] =  affine[:3,:3] @ MatRot
         """
+        
         out = nib.Nifti1Image(array, affine)
         if not nom.endswith('.nii.gz'):
             nom+='.nii.gz'
@@ -475,7 +476,7 @@ class MainWindow(QMainWindow):
         
   
         
-    def clickBoutton1(self, state):
+    def clickBoutton1(self):
         
         self.im1 = self.IMG1
         self.im2 = self.IMG2
@@ -618,7 +619,7 @@ class MainWindow(QMainWindow):
     def RotateNx(self,value):
         
         self.rotNiftiX = value
-        self.Nifti.update(self.rotNiftiX,self.rotNiftiY,self.rotNiftiZ,self.z1, self.nVol)
+        self.z1=self.Nifti.update(self.rotNiftiX,self.rotNiftiY,self.rotNiftiZ,self.z1, self.nVol)
         self.IMG1 = self.Nifti.current
         self.changed = True
         self.visual()
@@ -626,7 +627,7 @@ class MainWindow(QMainWindow):
     def RotateNy(self,value):
         
         self.rotNiftiY = value
-        self.Nifti.update(self.rotNiftiX,self.rotNiftiY,self.rotNiftiZ,self.z1, self.nVol)
+        self.z1=self.Nifti.update(self.rotNiftiX,self.rotNiftiY,self.rotNiftiZ,self.z1, self.nVol)
         self.IMG1 = self.Nifti.current
         self.changed = True
         self.visual()
@@ -634,7 +635,7 @@ class MainWindow(QMainWindow):
     def RotateNz(self,value):
         
         self.rotNiftiZ = value
-        self.Nifti.update(self.rotNiftiX,self.rotNiftiY,self.rotNiftiZ,self.z1, self.nVol)
+        self.z1=self.Nifti.update(self.rotNiftiX,self.rotNiftiY,self.rotNiftiZ,self.z1, self.nVol)
         self.IMG1 = self.Nifti.current
         self.changed = True
         self.visual()
@@ -648,7 +649,7 @@ class MainWindow(QMainWindow):
     def nVolume(self,value):
         
         self.nVol = value
-        self.Nifti.update(self.rotNiftiX,self.rotNiftiY,self.rotNiftiZ,self.z1, self.nVol)
+        self.z1=self.Nifti.update(self.rotNiftiX,self.rotNiftiY,self.rotNiftiZ,self.z1, self.nVol)
         self.IMG1 = self.Nifti.current
         self.changed = False
         self.visual()
@@ -664,10 +665,9 @@ class MainWindow(QMainWindow):
     def open1(self):
         path = QFileDialog.getOpenFileName(self, 'Open a file', '', 'All Files (*.tiff *.jpg *.png *.jpeg *.jpeg2000 *.nii*)')
         
-        print(path)
-        
         if ".nii" in path[0]:
             
+            self.clickBoutton1()
             #self.nii = True
             self.bool1 = True
             self.Check1.b.setChecked(True)
@@ -691,6 +691,7 @@ class MainWindow(QMainWindow):
             self.layout3.addWidget(self.SliderZ1,3,0)
             
         elif path !=('',''): 
+            self.clickBoutton1()
             self.bool1 = True
             temp = cv2.imread(path[0])
             self.Check1.b.setChecked(True)
@@ -724,6 +725,7 @@ class MainWindow(QMainWindow):
         path = QFileDialog.getOpenFileName(self, 'Open a file', '', 'All Files (*.tiff *.jpg *.png *.jpeg *.jpeg2000)')
 
         if path !=('',''):
+            self.clickBoutton1()
             self.bool2 = True
             temp = cv2.imread(path[0])
             self.Check2.b.setChecked(True)
@@ -757,10 +759,7 @@ class MainWindow(QMainWindow):
             
             (old_x1,old_y1,old_r1) = np.shape(self.im1)
             (old_x2,old_y2,old_r2) = np.shape(self.im2)
-            
-            self.Nifti.update(self.rotNiftiX,self.rotNiftiY,self.rotNiftiZ,self.z1, self.nVol)
-            self.IMG1 = self.Nifti.current
-            
+
             if self.bool:
                 self.im2 = cv2.flip(cv2.resize(self.IMG2, None, fx = self.zoomALL*self.zoomTIFF*self.affix ,fy = self.zoomALL*self.zoomTIFF*self.affiy),1)
             else:
@@ -779,6 +778,7 @@ class MainWindow(QMainWindow):
             self.y1 = int(self.y1*(x2/old_x2))
             self.x2 = int(self.x2*(y1/old_y1))
             self.y2 = int(self.y2*(x1/old_x1))
+
             
             self.SliderX1.deleteLater()
             self.SliderY1.deleteLater()
@@ -786,8 +786,6 @@ class MainWindow(QMainWindow):
             
             self.SliderX1 = Curseur("x axis Nifti: {0} px", -(y2//2) +1, y2//2 -1, self.x1, 1, self)
             self.SliderY1 = Curseur("y axis Nifti: {0} px", -(x2//2) +1, x2//2 -1, self.y1, 1, self)
-            if self.z1>self.Nifti.z-1:
-                self.z1=self.Nifti.z-1//2
             self.SliderZ1 = Curseur("z axis Nifti: {0} px", 0, self.Nifti.z-1, self.z1, 1, self)
             
             self.layout3.addWidget(self.SliderX1,1,0)
@@ -817,7 +815,7 @@ class MainWindow(QMainWindow):
         size1 = x1+x2
         size2 = y1+y2
         
-        self.final = np.ones((size1,size2,3))*236
+        self.final = np.zeros((size1,size2,3))*236
 
         X1M1 = -x1//2 + size1//2 - self.y1
         X2M1 = x1//2 + size1//2 - self.y1
@@ -866,11 +864,6 @@ class MainWindow(QMainWindow):
             
             
         self.final = self.final.astype(np.uint8)
-        #print(self.IMG1.shape)
-        
-        
-        #self.final = cv2.imread('/Users/eliotthenaut/Desktop/test.jpg')
-        #print(kake.all()==self.final.all())
 
         Img = Image.fromarray(self.final,mode='RGB')
         qt_image = ImageQt.ImageQt(Img)
@@ -954,12 +947,12 @@ class MainWindow(QMainWindow):
         self.header = None
         self.aff = np.eye(4)
         
-        self.IMG1 = np.ones((500,500,3))*236
-        self.IMG2 = np.ones((500,500,3))*236
+        self.IMG1 = np.ones((1000,700,3))*236
+        self.IMG2 = np.ones((1000,700,3))*236
         
-        self.im1 = np.ones((11,11,11))*236
-        self.im2 = np.ones((11,11,11))*236
-        self.final = np.ones((11,11,11))*236
+        self.im1 = np.ones((1,1,1))*236
+        self.im2 = np.ones((1,1,1))*236
+        self.final = np.ones((1,1,1))*236
           
         self.Nifti=Nifti(np.ones((11,11,11))*236,np.eye(4))
         
@@ -1034,7 +1027,7 @@ class MainWindow(QMainWindow):
         
         Img = Image.fromarray(self.final,mode='RGB')
         qt_image = ImageQt.ImageQt(Img)
-        #label = QLabel(self)
+
         IMG = QPixmap.fromImage(qt_image)
         IMG.detach()
         self.output.setPixmap(IMG)
